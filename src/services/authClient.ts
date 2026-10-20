@@ -79,6 +79,35 @@ export class AuthClient {
     }
   }
 
+  private static createDefaultProfile(email: string, name?: string, role: 'client' | 'admin' = 'client'): UserProfile {
+    const cleanEmail = email.toLowerCase().trim();
+    return {
+      id: `usr_${cleanEmail.replace(/[^a-z0-9]/g, '_')}_${Date.now()}`,
+      email: cleanEmail,
+      name: name || cleanEmail.split('@')[0] || 'Protected Citizen',
+      phone: '',
+      nativeLanguage: 'English',
+      homeState: 'CA',
+      membershipTier: 'free',
+      billingCycle: 'monthly',
+      credits: 5,
+      vehicleMakeModel: '',
+      vehicleLicensePlate: '',
+      vehicleColor: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      emergencyContacts: [],
+      medicalConditions: '',
+      isDeafOrHardOfHearing: false,
+      preferredVoice: 'executive-counsel',
+      whisperModeEnabled: false,
+      duressLockPin: '7482',
+      autoNotifyContactOnStart: true,
+      hasCompletedOnboarding: true,
+      role
+    };
+  }
+
   private static saveAccountLocally(email: string, user: UserProfile, password?: string): void {
     try {
       const accounts = this.getSavedAccounts();
@@ -216,19 +245,14 @@ export class AuthClient {
     const token = this.generateToken(uid, cleanEmail, role);
     const recoveryKey = this.generateRecoveryKey();
 
+    const base = this.createDefaultProfile(cleanEmail, params.name, role);
     const userProfile: UserProfile = {
+      ...base,
       id: uid,
-      email: cleanEmail,
-      name: params.name || cleanEmail.split('@')[0],
       phone: params.phone || '',
       homeState: params.homeState || 'CA',
       nativeLanguage: params.nativeLanguage || 'English',
-      membershipTier: 'free',
-      billingCycle: 'monthly',
-      role,
-      hasCompletedOnboarding: true,
-      authProvider: 'email',
-      createdAt: new Date().toISOString()
+      authProvider: 'email'
     };
 
     this.setToken(token);
@@ -301,21 +325,9 @@ export class AuthClient {
       }
     } catch (e) {}
 
-    const resolvedUser: UserProfile = existing?.user || activeProfile || {
-      id: `usr_${cleanEmail.replace(/[^a-z0-9]/g, '_')}_${Date.now()}`,
-      email: cleanEmail,
-      name: cleanEmail.split('@')[0],
-      phone: '',
-      homeState: 'CA',
-      nativeLanguage: 'English',
-      membershipTier: 'free',
-      billingCycle: 'monthly',
-      role,
-      hasCompletedOnboarding: true,
-      createdAt: new Date().toISOString()
-    };
+    const resolvedUser: UserProfile = existing?.user || activeProfile || this.createDefaultProfile(cleanEmail, cleanEmail.split('@')[0], role);
 
-    const token = this.generateToken(resolvedUser.id, cleanEmail, resolvedUser.role || role);
+    const token = this.generateToken(resolvedUser.id || `usr_${cleanEmail.replace(/[^a-z0-9]/g, '_')}_${Date.now()}`, cleanEmail, resolvedUser.role || role);
     this.setToken(token);
     try {
       localStorage.setItem(PROFILE_KEY, JSON.stringify(resolvedUser));
@@ -389,20 +401,16 @@ export class AuthClient {
     const token = this.generateToken(uid, cleanEmail, role);
     const recoveryKey = this.generateRecoveryKey();
 
+    const base = cachedProfile || existing?.user || this.createDefaultProfile(cleanEmail, params.name, role);
     const userProfile: UserProfile = {
-      ...(cachedProfile || existing?.user || {}),
+      ...base,
       id: uid,
       email: cleanEmail,
-      name: params.name || cachedProfile?.name || cleanEmail.split('@')[0],
-      phone: params.phone || cachedProfile?.phone || '',
-      homeState: cachedProfile?.homeState || 'CA',
-      nativeLanguage: cachedProfile?.nativeLanguage || 'English',
-      membershipTier: cachedProfile?.membershipTier || 'free',
-      billingCycle: cachedProfile?.billingCycle || 'monthly',
+      name: params.name || base.name || cleanEmail.split('@')[0],
+      phone: params.phone || base.phone || '',
       role,
       authProvider: params.provider,
-      hasCompletedOnboarding: true,
-      createdAt: cachedProfile?.createdAt || new Date().toISOString()
+      hasCompletedOnboarding: true
     };
 
     this.setToken(token);
