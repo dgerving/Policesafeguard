@@ -90,6 +90,69 @@ export default async function handler(req: any, res: any) {
     }
   }
 
+  // Handle Stripe process-card (must redirect to official checkout, never activate without payment!)
+  if (pathname === '/api/checkout/process-card' && req.method === 'POST') {
+    try {
+      const stripe = getStripe();
+      if (!stripe) return res.status(503).json({ error: 'Stripe unavailable' });
+      const body = req.body || {};
+      const { tier = 'all_encounters_pro', billingCycle = 'monthly', email, cardholderName = 'Valued Member' } = body;
+      const isSubscription = billingCycle === 'monthly' || billingCycle === 'yearly';
+      const isPreAuthTrial = billingCycle === 'monthly';
+      const unitAmount = billingCycle === 'lifetime' ? 7999 : (billingCycle === 'yearly' ? 4999 : 1499);
+      const creditsGranted = billingCycle === 'lifetime' ? 1000 : 50;
+      const planTitle = billingCycle === 'lifetime' ? 'Lifetime Access Pass ($79.99)' : (billingCycle === 'yearly' ? 'Annual Pro ($49.99/yr)' : '30-Day Free Trial ($14.99/mo)');
+
+      const origin = req.headers.origin || `https://${req.headers.host || 'www.policesafeguard.com'}`;
+      const session = await stripe.checkout.sessions.create({
+        mode: isSubscription ? 'subscription' : 'payment',
+        customer_email: email && email.includes('@') ? email : undefined,
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Police SafeGuard: ${planTitle}`,
+              description: isPreAuthTrial
+                ? 'Police SafeGuard Pro: 30-Day Free Trial ($0.00 today), auto-billed $14.99/mo until canceled.'
+                : (billingCycle === 'yearly'
+                    ? 'Police SafeGuard Pro: Annual Subscription ($49.99/yr).'
+                    : 'Police SafeGuard: Lifetime Access Pass ($79.99 one-time).')
+            },
+            unit_amount: unitAmount,
+            recurring: isSubscription ? { interval: billingCycle === 'yearly' ? 'year' : 'month' } : undefined
+          },
+          quantity: 1
+        }],
+        subscription_data: isSubscription ? {
+          trial_period_days: isPreAuthTrial ? 30 : undefined
+        } : undefined,
+        metadata: {
+          tier,
+          billingCycle,
+          creditsGranted: String(creditsGranted),
+          email: email || '',
+          cardholder: cardholderName
+        },
+        success_url: `${origin}/?payment=success&session_id={CHECKOUT_SESSION_ID}&tier=${tier}&cycle=${billingCycle}&credits=${creditsGranted}`,
+        cancel_url: `${origin}/?payment=cancelled`
+      });
+
+      return res.status(200).json({
+        success: true,
+        paid: false,
+        requiresRedirect: true,
+        checkoutUrl: session.url,
+        sessionId: session.id,
+        planTitle,
+        tier,
+        billingCycle,
+        message: 'Redirecting to official Stripe checkout to approve card and charge funds.'
+      });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, paid: false, error: e?.message || 'Error creating checkout session' });
+    }
+  }
+
   // Handle Stripe verify-session
   if (pathname === '/api/checkout/verify-session' && req.method === 'POST') {
     try {
