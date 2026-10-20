@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global security primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for User Profile
+    function isValidUserProfile(data) {
+      return data.userId is string &&
+             data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.name is string &&
+             data.name.size() > 0 &&
+             data.name.size() <= 100;
+    }
+
+    // Validation for Evidence Record
+    function isValidEvidenceRecord(data) {
+      return data.sessionId is string &&
+             data.sessionId.size() <= 128 &&
+             data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.sha256Hash is string &&
+             data.sha256Hash.size() <= 128;
+    }
+
+    // Validation for Live Broadcast
+    function isValidLiveBroadcast(data) {
+      return data.sessionId is string &&
+             data.sessionId.size() <= 128 &&
+             data.isLive is bool;
+    }
+
+    // Users collection (PII isolation: only owner can read or write)
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false; // Forbid scraping or listing all user accounts
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId;
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Subcollection for user's certified evidence records
+      match /evidence_records/{recordId} {
+        allow get: if isOwner(userId) && isValidId(recordId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(recordId) &&
+                         isValidEvidenceRecord(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(recordId) &&
+                         isValidEvidenceRecord(incoming()) &&
+                         incoming().sessionId == existing().sessionId;
+
+        allow delete: if isOwner(userId) && isValidId(recordId);
+      }
+    }
+
+    // Live broadcasts for distress live streaming
+    match /live_broadcasts/{broadcastId} {
+      allow get: if isValidId(broadcastId);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+                       isValidId(broadcastId) &&
+                       isValidLiveBroadcast(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(broadcastId) &&
+                       isValidLiveBroadcast(incoming());
+
+      allow delete: if isSignedIn() && isValidId(broadcastId);
+    }
+
+    // Test connection endpoint for initial bootstrap verification
+    match /test/connection {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

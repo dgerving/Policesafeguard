@@ -1,0 +1,152 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered citizen profile, constitutional settings, and emergency preferences",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique user authentication UID",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Citizen full name",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Contact and account email",
+          "maxLength": 150
+        },
+        "phone": {
+          "type": "string",
+          "description": "Citizen phone number",
+          "maxLength": 30
+        },
+        "homeState": {
+          "type": "string",
+          "description": "Two-letter US state code",
+          "maxLength": 10
+        },
+        "nativeLanguage": {
+          "type": "string",
+          "description": "Primary communication language",
+          "maxLength": 30
+        },
+        "membershipTier": {
+          "type": "string",
+          "description": "Subscription tier",
+          "enum": ["free", "traffic_pro", "all_encounters_pro", "lifetime_pro", "paid"]
+        },
+        "billingCycle": {
+          "type": "string",
+          "description": "Billing cadence",
+          "enum": ["monthly", "yearly", "lifetime", "pay_per_use"]
+        },
+        "emergencyContactName": {
+          "type": "string",
+          "description": "Emergency contact name",
+          "maxLength": 100
+        },
+        "emergencyContactPhone": {
+          "type": "string",
+          "description": "Emergency contact phone",
+          "maxLength": 30
+        },
+        "vehicleLicensePlate": {
+          "type": "string",
+          "description": "Vehicle registration license plate",
+          "maxLength": 20
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["userId", "name"]
+    },
+    "EvidenceCustodyRecord": {
+      "title": "EvidenceCustodyRecord",
+      "description": "Federal Rules of Evidence Rule 902 compliant police encounter audit log",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Unique session identifier",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Citizen owner UID",
+          "maxLength": 128
+        },
+        "encounterType": {
+          "type": "string",
+          "description": "Encounter category",
+          "maxLength": 50
+        },
+        "sha256Hash": {
+          "type": "string",
+          "description": "Cryptographic tamper-proof checksum",
+          "maxLength": 128
+        },
+        "durationSeconds": {
+          "type": "number",
+          "description": "Encounter duration in seconds"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["sessionId", "userId", "sha256Hash"]
+    },
+    "LiveBroadcast": {
+      "title": "LiveBroadcast",
+      "description": "Real-time emergency distress stream session",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Broadcasting session identifier",
+          "maxLength": 128
+        },
+        "isLive": {
+          "type": "boolean",
+          "description": "Live broadcast state"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Citizen caller name",
+          "maxLength": 100
+        },
+        "encounterType": {
+          "type": "string",
+          "description": "Category of active encounter",
+          "maxLength": 50
+        },
+        "startedAt": {
+          "type": "number",
+          "description": "Epoch timestamp of stream initiation"
+        }
+      },
+      "required": ["sessionId", "isLive"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private citizen profile document accessible only by owner"
+    },
+    "/users/{userId}/evidence_records/{recordId}": {
+      "schema": "EvidenceCustodyRecord",
+      "description": "Evidence records owned by the citizen"
+    },
+    "/live_broadcasts/{broadcastId}": {
+      "schema": "LiveBroadcast",
+      "description": "Real-time distress broadcasts accessible for emergency witness verification"
+    }
+  }
+}

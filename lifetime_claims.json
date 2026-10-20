@@ -1,0 +1,11 @@
+[
+  {
+    "id": "claim-1792425585813-lrs9z",
+    "claimedAt": 1792425585813,
+    "userEmail": "testcitizen@example.com",
+    "userName": "Jane M. Doe",
+    "tier": "lifetime_pro",
+    "source": "card_checkout",
+    "amountPaid": 79.99
+  }
+]

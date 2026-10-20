@@ -1,0 +1,12 @@
+{
+  "name": "Police SafeGuard",
+  "description": "Your own personal AI guide to help ensure your rights are protected should you have an encounter with law enforcement. Stay safe, stay protected from tricks and lies. Know your rights in real time in your jurisdiction at the time you need to know them.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
