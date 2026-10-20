@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --theme-accent: #f59e0b;
+  --theme-glow: rgba(245, 158, 11, 0.3);
+}
+
+/* Dynamic Theme Presets with Visible Background, Border, and Accent Styling */
+[data-theme="midnight_blue"],
+body[data-theme="midnight_blue"] {
+  --theme-accent: #38bdf8;
+  --theme-glow: rgba(56, 189, 248, 0.4);
+  background-color: #030712 !important;
+}
+
+[data-theme="midnight_blue"] #police-safeguard-app-root,
+[data-theme="midnight_blue"] .theme-bg-root {
+  background: radial-gradient(ellipse at 50% 0%, #0b1a36 0%, #050b18 50%, #02050d 100%) !important;
+}
+
+[data-theme="midnight_blue"] [class*="bg-zinc-950"] { background-color: #050b17 !important; }
+[data-theme="midnight_blue"] [class*="bg-zinc-900"] { background-color: #0c182d !important; }
+[data-theme="midnight_blue"] [class*="bg-zinc-850"] { background-color: #10213d !important; }
+[data-theme="midnight_blue"] [class*="bg-zinc-800"] { background-color: #14284b !important; }
+[data-theme="midnight_blue"] [class*="border-zinc-800"] { border-color: #1e355b !important; }
+[data-theme="midnight_blue"] [class*="border-zinc-700"] { border-color: #264372 !important; }
+[data-theme="midnight_blue"] [class*="text-amber-400"],
+[data-theme="midnight_blue"] [class*="text-amber-300"] { color: #38bdf8 !important; }
+[data-theme="midnight_blue"] [class*="bg-amber-400"],
+[data-theme="midnight_blue"] [class*="bg-amber-500"] { background-color: #0284c7 !important; color: #ffffff !important; }
+[data-theme="midnight_blue"] [class*="border-amber-400"],
+[data-theme="midnight_blue"] [class*="border-amber-500"] { border-color: #38bdf8 !important; }
+[data-theme="midnight_blue"] [class*="shadow-amber-500"] { box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.25) !important; }
+
+/* Crimson Guard Theme */
+[data-theme="crimson_guard"],
+body[data-theme="crimson_guard"] {
+  --theme-accent: #ef4444;
+  --theme-glow: rgba(239, 68, 68, 0.45);
+  background-color: #0a0405 !important;
+}
+
+[data-theme="crimson_guard"] #police-safeguard-app-root,
+[data-theme="crimson_guard"] .theme-bg-root {
+  background: radial-gradient(ellipse at 50% 0%, #2b0b10 0%, #150508 50%, #080204 100%) !important;
+}
+
+[data-theme="crimson_guard"] [class*="bg-zinc-950"] { background-color: #0f0507 !important; }
+[data-theme="crimson_guard"] [class*="bg-zinc-900"] { background-color: #1c0a0e !important; }
+[data-theme="crimson_guard"] [class*="bg-zinc-850"] { background-color: #270d13 !important; }
+[data-theme="crimson_guard"] [class*="bg-zinc-800"] { background-color: #35131b !important; }
+[data-theme="crimson_guard"] [class*="border-zinc-800"] { border-color: #4a1723 !important; }
+[data-theme="crimson_guard"] [class*="border-zinc-700"] { border-color: #631e2f !important; }
+[data-theme="crimson_guard"] [class*="text-amber-400"],
+[data-theme="crimson_guard"] [class*="text-amber-300"] { color: #f87171 !important; }
+[data-theme="crimson_guard"] [class*="bg-amber-400"],
+[data-theme="crimson_guard"] [class*="bg-amber-500"] { background-color: #dc2626 !important; color: #ffffff !important; }
+[data-theme="crimson_guard"] [class*="border-amber-400"],
+[data-theme="crimson_guard"] [class*="border-amber-500"] { border-color: #ef4444 !important; }
+[data-theme="crimson_guard"] [class*="shadow-amber-500"] { box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.25) !important; }
+
+/* Forest Camo Theme */
+[data-theme="forest_camo"],
+body[data-theme="forest_camo"] {
+  --theme-accent: #10b981;
+  --theme-glow: rgba(16, 185, 129, 0.4);
+  background-color: #030805 !important;
+}
+
+[data-theme="forest_camo"] #police-safeguard-app-root,
+[data-theme="forest_camo"] .theme-bg-root {
+  background: radial-gradient(ellipse at 50% 0%, #0a2615 0%, #06150b 50%, #020704 100%) !important;
+}
+
+[data-theme="forest_camo"] [class*="bg-zinc-950"] { background-color: #051009 !important; }
+[data-theme="forest_camo"] [class*="bg-zinc-900"] { background-color: #0b1d11 !important; }
+[data-theme="forest_camo"] [class*="bg-zinc-850"] { background-color: #0f2817 !important; }
+[data-theme="forest_camo"] [class*="bg-zinc-800"] { background-color: #153820 !important; }
+[data-theme="forest_camo"] [class*="border-zinc-800"] { border-color: #1d4d2d !important; }
+[data-theme="forest_camo"] [class*="border-zinc-700"] { border-color: #27653b !important; }
+[data-theme="forest_camo"] [class*="text-amber-400"],
+[data-theme="forest_camo"] [class*="text-amber-300"] { color: #34d399 !important; }
+[data-theme="forest_camo"] [class*="bg-amber-400"],
+[data-theme="forest_camo"] [class*="bg-amber-500"] { background-color: #059669 !important; color: #ffffff !important; }
+[data-theme="forest_camo"] [class*="border-amber-400"],
+[data-theme="forest_camo"] [class*="border-amber-500"] { border-color: #10b981 !important; }
+[data-theme="forest_camo"] [class*="shadow-amber-500"] { box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.25) !important; }
+
+/* Carbon Fiber Theme */
+[data-theme="carbon_fiber"],
+body[data-theme="carbon_fiber"] {
+  --theme-accent: #e4e4e7;
+  --theme-glow: rgba(228, 228, 231, 0.3);
+  background-color: #050505 !important;
+}
+
+[data-theme="carbon_fiber"] #police-safeguard-app-root,
+[data-theme="carbon_fiber"] .theme-bg-root {
+  background: radial-gradient(ellipse at 50% 0%, #1f1f23 0%, #111113 50%, #050506 100%) !important;
+}
+
+[data-theme="carbon_fiber"] [class*="bg-zinc-950"] { background-color: #09090b !important; }
+[data-theme="carbon_fiber"] [class*="bg-zinc-900"] { background-color: #141416 !important; }
+[data-theme="carbon_fiber"] [class*="bg-zinc-850"] { background-color: #1c1c1f !important; }
+[data-theme="carbon_fiber"] [class*="bg-zinc-800"] { background-color: #27272a !important; }
+[data-theme="carbon_fiber"] [class*="border-zinc-800"] { border-color: #38383e !important; }
+[data-theme="carbon_fiber"] [class*="border-zinc-700"] { border-color: #4b4b53 !important; }
+[data-theme="carbon_fiber"] [class*="text-amber-400"],
+[data-theme="carbon_fiber"] [class*="text-amber-300"] { color: #f4f4f5 !important; }
+[data-theme="carbon_fiber"] [class*="bg-amber-400"],
+[data-theme="carbon_fiber"] [class*="bg-amber-500"] { background-color: #3f3f46 !important; color: #ffffff !important; }
+[data-theme="carbon_fiber"] [class*="border-amber-400"],
+[data-theme="carbon_fiber"] [class*="border-amber-500"] { border-color: #71717a !important; }
+[data-theme="carbon_fiber"] [class*="shadow-amber-500"] { box-shadow: 0 10px 15px -3px rgba(228, 228, 231, 0.2) !important; }
+
+/* Amber Gold Theme */
+[data-theme="amber_gold"],
+body[data-theme="amber_gold"] {
+  --theme-accent: #fbbf24;
+  --theme-glow: rgba(251, 191, 36, 0.45);
+  background-color: #0a0702 !important;
+}
+
+[data-theme="amber_gold"] #police-safeguard-app-root,
+[data-theme="amber_gold"] .theme-bg-root {
+  background: radial-gradient(ellipse at 50% 0%, #2b1c06 0%, #160e03 50%, #070401 100%) !important;
+}
+
+[data-theme="amber_gold"] [class*="bg-zinc-950"] { background-color: #0e0903 !important; }
+[data-theme="amber_gold"] [class*="bg-zinc-900"] { background-color: #1a1105 !important; }
+[data-theme="amber_gold"] [class*="bg-zinc-850"] { background-color: #241708 !important; }
+[data-theme="amber_gold"] [class*="bg-zinc-800"] { background-color: #33210b !important; }
+[data-theme="amber_gold"] [class*="border-zinc-800"] { border-color: #4d3211 !important; }
+[data-theme="amber_gold"] [class*="border-zinc-700"] { border-color: #694417 !important; }
+[data-theme="amber_gold"] [class*="text-amber-400"],
+[data-theme="amber_gold"] [class*="text-amber-300"] { color: #fde047 !important; }
+[data-theme="amber_gold"] [class*="bg-amber-400"],
+[data-theme="amber_gold"] [class*="bg-amber-500"] { background-color: #f59e0b !important; color: #000000 !important; }
+[data-theme="amber_gold"] [class*="border-amber-400"],
+[data-theme="amber_gold"] [class*="border-amber-500"] { border-color: #fbbf24 !important; }
+[data-theme="amber_gold"] [class*="shadow-amber-500"] { box-shadow: 0 10px 15px -3px rgba(251, 191, 36, 0.3) !important; }
+
+/* Tactical Dark (Default) */
+[data-theme="tactical_dark"],
+body[data-theme="tactical_dark"] {
+  --theme-accent: #f59e0b;
+  --theme-glow: rgba(245, 158, 11, 0.25);
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #09090b;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #09090b;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom scrollbars for internal scrollable panes */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.4);
+}
+
+@keyframes slowPan {
+  0%, 100% {
+    transform: scale(1.02) translateY(0);
+  }
+  50% {
+    transform: scale(1.06) translateY(-4px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes radarSweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.4));
+  }
+  50% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 16px rgba(245, 158, 11, 0.8));
+  }
+}
+
+.animate-slow-pan {
+  animation: slowPan 16s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 4s linear infinite;
+}
+
+.animate-radar-sweep {
+  animation: radarSweep 6s linear infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}

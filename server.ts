@@ -2184,13 +2184,13 @@ app.post('/api/checkout/process-card', async (req, res) => {
           paymentMethodId = pm.id;
           if (pm.card?.last4) last4 = pm.card.last4;
         } catch (rawErr: any) {
-          console.info('[Police SafeGuard Live Stripe Card Entry] Live mode card processing with merchant account acct_1SrXzhGjgY4393rx:', rawErr?.message);
+          console.info('[Police SafeGuard Live Stripe Card Entry] Live mode card processing notice:', rawErr?.message);
 
-          // In live production mode where raw card endpoints require standard Stripe checkout tokenization,
-          // create the official Stripe Customer & Checkout Session on the user's live merchant account,
-          // activate the subscription record, and return the verified receipt so in-app card entry completes smoothly!
+          // On live Stripe accounts, PCI security forbids direct transmission of raw card numbers to backend API.
+          // Create the official Stripe Customer & Checkout Session so the user can securely authorize the charge directly with Stripe.
+          // IMPORTANT: NEVER activate subscriptions or mark paid: true without confirmed bank approval!
           try {
-            // 1. Find or create real Customer in live Stripe account
+            // 1. Find or create Customer in live Stripe account
             let customer: Stripe.Customer;
             if (cleanEmail && cleanEmail.includes('@')) {
               const existing = await stripe.customers.list({ email: cleanEmail, limit: 1 });
@@ -2236,55 +2236,36 @@ app.post('/api/checkout/process-card', async (req, res) => {
               subscription_data: isSubscription ? {
                 trial_period_days: isPreAuthTrial ? 30 : undefined
               } : undefined,
-              success_url: `${sessionOrigin}/?payment=success&tier=${tier}&cycle=${billingCycle}&credits=${creditsGranted}`,
+              metadata: {
+                tier,
+                billingCycle,
+                creditsGranted: String(creditsGranted),
+                email: cleanEmail
+              },
+              success_url: `${sessionOrigin}/?payment=success&session_id={CHECKOUT_SESSION_ID}&tier=${tier}&cycle=${billingCycle}&credits=${creditsGranted}`,
               cancel_url: `${sessionOrigin}/?payment=cancelled`
             });
 
-            // 3. Update database subscription
-            try {
-              AuthService.updateUserSubscription({
-                email: cleanEmail,
-                customerId: customer.id,
-                subscriptionId: session.id,
-                membershipTier: (billingCycle === 'lifetime' ? 'lifetime_pro' : 'all_encounters_pro') as any,
-                billingCycle: billingCycle as any,
-                creditsDelta: creditsGranted
-              });
-            } catch (authErr) {
-              console.warn('AuthService update subscription notice:', authErr);
-            }
+            console.info(`[STRIPE CHECKOUT REDIRECT CREATED] Session ${session.id} on account acct_1SrXzhGjgY4393rx, requires user completion on Stripe for funds approval.`);
 
-            console.info(`[STRIPE LIVE CARD SUBMISSION SUCCESS] Customer ${customer.id} on account acct_1SrXzhGjgY4393rx, Session ${session.id}, Tier ${tier}, Cycle ${billingCycle}`);
-
+            // Return redirect URL with paid: false - subscription will ONLY activate after Stripe approves payment!
             return res.json({
               success: true,
-              paid: true,
-              preAuthorized: isPreAuthTrial,
-              trialActive: isPreAuthTrial,
-              trialDays: isPreAuthTrial ? 30 : 0,
-              preAuthHoldAmount: isPreAuthTrial ? unitAmount / 100 : 0.00,
-              amountChargedToday: isPreAuthTrial ? 0.00 : unitAmount / 100,
-              amountCharged: isPreAuthTrial ? 0.00 : unitAmount / 100,
-              stripeTransactionVerified: true,
-              transactionId: `auth_live_${Date.now()}_${cleanNumber.slice(-4)}`,
-              customerStripeId: customer.id,
+              paid: false,
+              requiresRedirect: true,
               checkoutUrl: session.url,
+              sessionId: session.id,
+              customerStripeId: customer.id,
               planTitle,
               tier,
               billingCycle,
-              last4: cleanNumber.slice(-4),
-              cardBrand: /^[4]/.test(cleanNumber) ? 'Visa' : (/^5[1-5]/.test(cleanNumber) ? 'Mastercard' : 'Card'),
-              creditsGranted,
-              message: isPreAuthTrial
-                ? 'Card pre-authorization confirmed on live Stripe merchant account. 30-day free trial active ($0.00 today). Auto-billed $14.99/mo on day 30 until canceled.'
-                : (billingCycle === 'yearly'
-                    ? 'Annual Pro subscription verified on live Stripe merchant account. $49.99 auto-renews annually until canceled.'
-                    : 'Lifetime access pass confirmed on live Stripe merchant account ($79.99 one-time).')
+              message: 'Please complete payment on the official Stripe checkout to approve and authorize your card.'
             });
           } catch (liveErr: any) {
             console.error('Live Stripe session and customer creation error:', liveErr);
             return res.status(400).json({
               success: false,
+              paid: false,
               error: liveErr.message || 'Payment card authorization failed with Stripe. Please check your card information.'
             });
           }
@@ -2475,7 +2456,37 @@ app.post('/api/checkout/verify-session', async (req, res) => {
     const isPaid =
       session.payment_status === 'paid' || session.status === 'complete';
 
-    if (isPaid && session.metadata?.billingCycle === 'lifetime') {
+    if (!isPaid) {
+      return res.json({
+        paid: false,
+        status: session.status,
+        paymentStatus: session.payment_status,
+        error: 'Payment was not approved or completed by Stripe.'
+      });
+    }
+
+    const verifiedTier = session.metadata?.tier || tier;
+    const verifiedCycle = session.metadata?.billingCycle || 'monthly';
+    const creditsGranted = Number(session.metadata?.creditsGranted || (verifiedCycle === 'lifetime' ? 1000 : 50));
+    const customerEmail = session.customer_details?.email || session.metadata?.email;
+
+    // Database subscription is ONLY updated after Stripe has confirmed the payment
+    if (customerEmail) {
+      try {
+        AuthService.updateUserSubscription({
+          email: customerEmail,
+          customerId: typeof session.customer === 'string' ? session.customer : (session.customer as any)?.id,
+          subscriptionId: typeof session.subscription === 'string' ? session.subscription : (session.subscription as any)?.id || session.id,
+          membershipTier: (verifiedCycle === 'lifetime' ? 'lifetime_pro' : 'all_encounters_pro') as any,
+          billingCycle: verifiedCycle as any,
+          creditsDelta: creditsGranted
+        });
+      } catch (authErr) {
+        console.warn('AuthService update error on verify:', authErr);
+      }
+    }
+
+    if (verifiedCycle === 'lifetime') {
       const email = session.customer_details?.email;
       const alreadyClaimed = email ? lifetimeClaims.some(c => c.userEmail && c.userEmail.toLowerCase() === email.toLowerCase()) : false;
       if (!alreadyClaimed) {
@@ -2483,22 +2494,24 @@ app.post('/api/checkout/verify-session', async (req, res) => {
           userEmail: email || undefined,
           tier: 'lifetime_pro',
           source: 'stripe_checkout',
-          amountPaid: 200
+          amountPaid: 7999
         });
       }
     }
 
     res.json({
-      paid: isPaid,
-      tier: isPaid ? (session.metadata?.tier || tier) : 'free',
-      billingCycle: session.metadata?.billingCycle || 'monthly',
-      creditsGranted: Number(session.metadata?.creditsGranted || 0),
+      paid: true,
+      verified: true,
+      tier: verifiedTier,
+      billingCycle: verifiedCycle,
+      creditsGranted,
       status: session.status,
       customerEmail: session.customer_details?.email,
+      amountTotal: session.amount_total ? session.amount_total / 100 : undefined
     });
   } catch (error: any) {
     console.error('Session verification error:', error);
-    res.status(500).json({ error: error.message || 'Verification failed' });
+    res.status(500).json({ paid: false, error: error.message || 'Verification failed' });
   }
 });
 

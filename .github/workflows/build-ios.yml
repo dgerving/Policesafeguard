@@ -1,0 +1,35 @@
+name: Build iOS Archive (App Store)
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Sync iOS Platform
+        run: npx cap sync ios
+
+      - name: Build iOS Project with Xcodebuild
+        run: |
+          cd ios/App
+          xcodebuild -scheme App -destination 'generic/platform=iOS' clean build CODE_SIGNING_ALLOWED=NO

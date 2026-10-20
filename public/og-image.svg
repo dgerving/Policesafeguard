@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09090b" />
+      <stop offset="50%" stop-color="#18181b" />
+      <stop offset="100%" stop-color="#09090b" />
+    </linearGradient>
+
+    <!-- Gold Accent Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="50%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Emerald Verified Gradient -->
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+
+    <!-- Subtle Grid Pattern -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#27272a" stroke-width="0.8" opacity="0.4" />
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+  <rect width="1200" height="630" fill="url(#grid)" />
+
+  <!-- Outer Glow Frame -->
+  <rect x="24" y="24" width="1152" height="582" rx="32" fill="none" stroke="url(#goldGrad)" stroke-width="2.5" opacity="0.35" />
+
+  <!-- Top Verified Ribbon / Badge -->
+  <g transform="translate(80, 75)">
+    <rect width="360" height="38" rx="19" fill="#18181b" stroke="#3f3f46" stroke-width="1.5" />
+    <circle cx="24" cy="19" r="9" fill="#10b981" />
+    <path d="M 20 19 L 23 22 L 28 16" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+    <text x="44" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" fill="#e4e4e7" letter-spacing="1">
+      OFFICIAL CIVILIAN PROTECTION
+    </text>
+  </g>
+
+  <!-- Main Shield Logo (Left) -->
+  <g transform="translate(100, 160)">
+    <!-- Base Shield -->
+    <path d="M 120 20 C 180 20 230 55 230 115 C 230 205 150 270 120 295 C 90 270 10 205 10 115 C 10 55 60 20 120 20 Z" 
+          fill="#18181b" stroke="url(#goldGrad)" stroke-width="9" />
+    
+    <!-- Scale of Justice Motif inside Shield -->
+    <line x1="120" y1="75" x2="120" y2="215" stroke="url(#goldGrad)" stroke-width="7" stroke-linecap="round" />
+    <line x1="60" y1="100" x2="180" y2="100" stroke="url(#goldGrad)" stroke-width="7" stroke-linecap="round" />
+    <circle cx="120" cy="100" r="10" fill="#fbbf24" />
+    
+    <!-- Left Scale -->
+    <line x1="75" y1="100" x2="55" y2="155" stroke="#a1a1aa" stroke-width="2" />
+    <line x1="75" y1="100" x2="95" y2="155" stroke="#a1a1aa" stroke-width="2" />
+    <path d="M 50 155 Q 75 175 100 155 Z" fill="url(#goldGrad)" />
+    
+    <!-- Right Scale -->
+    <line x1="165" y1="100" x2="145" y2="155" stroke="#a1a1aa" stroke-width="2" />
+    <line x1="165" y1="100" x2="185" y2="155" stroke="#a1a1aa" stroke-width="2" />
+    <path d="M 140 155 Q 165 175 190 155 Z" fill="url(#goldGrad)" />
+  </g>
+
+  <!-- Typography & App Details (Right Side) -->
+  <g transform="translate(410, 185)">
+    <!-- Main Title -->
+    <text x="0" y="50" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="54" font-weight="900" fill="#ffffff" letter-spacing="-0.5">
+      Police SafeGuard
+    </text>
+
+    <!-- Subtitle / Value Proposition -->
+    <text x="0" y="102" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="700" fill="#fbbf24">
+      Personal AI Law Enforcement Rights Assistant
+    </text>
+
+    <!-- Description -->
+    <text x="0" y="152" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="400" fill="#d4d4d8">
+      Real-time constitutional guidance • Multi-language speech copilot
+    </text>
+    <text x="0" y="184" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="400" fill="#d4d4d8">
+      Cryptographic chain-of-custody vault • Instant live stream dispatch
+    </text>
+
+    <!-- Official Web App URL Pill & Trust Badges -->
+    <g transform="translate(0, 225)">
+      <rect width="420" height="52" rx="16" fill="#18181b" stroke="#3f3f46" stroke-width="1.5" />
+      <text x="24" y="32" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="19" font-weight="700" fill="#fde047">
+        policeprotection.app
+      </text>
+      <g transform="translate(325, 12)">
+        <rect width="80" height="28" rx="8" fill="#10b981" fill-opacity="0.15" stroke="#10b981" stroke-width="1" />
+        <text x="14" y="19" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" fill="#34d399">
+          100% FREE
+        </text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Bottom Trust Bar -->
+  <g transform="translate(80, 555)">
+    <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#71717a">
+      SECURE HTTPS • PROGRESSIVE WEB APP • NO APP STORE DOWNLOAD REQUIRED • INSTALLS ON IOS &amp; ANDROID
+    </text>
+  </g>
+</svg>

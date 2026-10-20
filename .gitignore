@@ -9,3 +9,7 @@ coverage/
 .vercel
 .gmp_cache/
 *.zip
+data/sessions.json
+data/vault_master.key
+data/vault_evidence/
+data/live_sessions/

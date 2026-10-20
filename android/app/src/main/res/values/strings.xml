@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Police SafeGuard</string>
+    <string name="title_activity_main">Police SafeGuard</string>
+    <string name="package_name">com.policesafeguard.app</string>
+    <string name="custom_url_scheme">com.policesafeguard.app</string>
+</resources>
