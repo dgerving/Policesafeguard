@@ -1,0 +1,29 @@
+language: "en-US"
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+chat:
+  auto_reply: true
+path_instructions:
+  - path: "src/**"
+    instructions: |
+      Review for TypeScript correctness, React/Next.js patterns, and frontend accessibility.
+      Flag risky state management, data leakage, or user-facing issues, and prefer minimal, maintainable fixes.
+  - path: "api/**"
+    instructions: |
+      Review for API security, validation, and error handling.
+      Ensure endpoints avoid exposing sensitive data and that request validation is explicit.
+  - path: "server/**"
+    instructions: |
+      Review for security, performance, and production robustness.
+      Flag unsafe assumptions, missing validation, or insecure handling of user input or secrets.
+  - path: "**/*.ts"
+    instructions: |
+      Prefer clear, typed code and explicit error handling.
+      Avoid unnecessary complexity and ensure changes remain easy to reason about.
