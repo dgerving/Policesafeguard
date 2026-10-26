@@ -2,60 +2,51 @@ import { initializeApp, getApps, type FirebaseApp, type FirebaseOptions } from '
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
 import { initializeFirestore, setLogLevel, doc, getDocFromServer, type Firestore } from 'firebase/firestore';
 
-// Raw imported configuration if present in environment
-let rawConfig: any = null;
-try {
-  // @ts-ignore
-  rawConfig = await import('../../firebase-applet-config.json').then(m => m.default || m).catch(() => null);
-} catch {
-  rawConfig = null;
-}
+import firebaseConfig from '../../firebase-applet-config.json';
 
-// Fallback to environment variables if config file is not loaded
-const firebaseConfig: FirebaseOptions = {
-  apiKey: rawConfig?.apiKey || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_API_KEY || process.env?.FIREBASE_API_KEY : '') || '',
-  authDomain: rawConfig?.authDomain || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_AUTH_DOMAIN || process.env?.FIREBASE_AUTH_DOMAIN : '') || '',
-  projectId: rawConfig?.projectId || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_PROJECT_ID || process.env?.FIREBASE_PROJECT_ID : '') || '',
-  storageBucket: rawConfig?.storageBucket || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_STORAGE_BUCKET : '') || '',
-  messagingSenderId: rawConfig?.messagingSenderId || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_MESSAGING_SENDER_ID : '') || '',
-  appId: rawConfig?.appId || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_APP_ID : '') || '',
-};
-
-const isConfigValid = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
-
-let app: FirebaseApp | null = null;
-let dbInstance: Firestore | null = null;
-let authInstance: Auth | null = null;
-
-if (isConfigValid) {
-  try {
-    app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
-    setLogLevel('error');
-    
-    dbInstance = initializeFirestore(
-      app,
-      {
-        experimentalAutoDetectLongPolling: true,
-        ignoreUndefinedProperties: true,
-      },
-      (rawConfig as any)?.firestoreDatabaseId
-    );
-
-    authInstance = getAuth(app);
-  } catch (err) {
-    console.warn('Firebase initialization skipped or deferred due to configuration error:', err);
-  }
+// Initialize Firebase App synchronously
+let app: FirebaseApp;
+if (getApps().length > 0) {
+  app = getApps()[0];
 } else {
-  // Silent fallback when running offline or unconfigured
-  if (typeof window !== 'undefined') {
-    // Non-blocking notice for dev environment
-    console.info('Firebase running in local offline storage mode (no credentials supplied).');
-  }
+  app = initializeApp({
+    apiKey: firebaseConfig.apiKey || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_API_KEY : '') || '',
+    authDomain: firebaseConfig.authDomain || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_AUTH_DOMAIN : '') || '',
+    projectId: firebaseConfig.projectId || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_PROJECT_ID : '') || '',
+    storageBucket: firebaseConfig.storageBucket || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_STORAGE_BUCKET : '') || '',
+    messagingSenderId: firebaseConfig.messagingSenderId || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_MESSAGING_SENDER_ID : '') || '',
+    appId: firebaseConfig.appId || (typeof process !== 'undefined' ? process.env?.VITE_FIREBASE_APP_ID : '') || '',
+  });
 }
 
-export const db = dbInstance as Firestore;
-export const auth = authInstance as Auth;
+try {
+  setLogLevel('error');
+} catch {}
+
+// Initialize Firestore with explicit database ID from config
+let dbInstance: Firestore;
+try {
+  dbInstance = initializeFirestore(
+    app,
+    {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true,
+    },
+    (firebaseConfig as any).firestoreDatabaseId
+  );
+} catch {
+  dbInstance = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+    ignoreUndefinedProperties: true,
+  });
+}
+
+const authInstance: Auth = getAuth(app);
+
+export const db = dbInstance;
+export const auth = authInstance;
 export const googleAuthProvider = new GoogleAuthProvider();
+googleAuthProvider.setCustomParameters({ prompt: 'select_account' });
 
 export enum OperationType {
   CREATE = 'create',

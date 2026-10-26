@@ -231,9 +231,20 @@ export class AuthClient {
       };
     } catch (err: any) {
       console.warn('Firebase Google Sign-In error:', err?.message || err);
+      const code = err?.code || '';
+      const message = err?.message || '';
+      const isDomainError = code === 'auth/unauthorized-domain' || message.includes('unauthorized-domain');
+      if (isDomainError) {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'policesafeguard.com';
+        return {
+          success: false,
+          isDomainError: true,
+          error: `Domain authorization required (auth/unauthorized-domain): The host "${hostname}" must be added to Authorized Domains in your Firebase Authentication Settings.`
+        };
+      }
       return {
         success: false,
-        error: err?.message || 'Google sign-in was cancelled or unavailable. Please sign in with your email and password.'
+        error: message || 'Google sign-in was cancelled or unavailable. Please sign in with your email and password.'
       };
     }
   }
