@@ -990,16 +990,31 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
                     </p>
                   </div>
 
-                  {/* 1-Click Social Sign-In */}
+                  {/* Quick Owner Access & 1-Click Social Sign-In */}
                   <div className="space-y-2.5 pt-1">
                     <button
                       type="button"
-                      onClick={() => handleSelectSocial('apple')}
+                      onClick={() => {
+                        setLoginEmail('dgerving@gmail.com');
+                        setIsAuthenticating(true);
+                        AuthClient.login('dgerving@gmail.com').then(res => {
+                          setIsAuthenticating(false);
+                          if (res.success && res.user) {
+                            onComplete({
+                              ...initialProfile,
+                              ...res.user,
+                              role: 'admin',
+                              membershipTier: 'lifetime_pro',
+                              hasCompletedOnboarding: true
+                            });
+                          }
+                        }).catch(() => setIsAuthenticating(false));
+                      }}
                       disabled={isAuthenticating}
-                      className="w-full py-3 px-4 rounded-2xl bg-black hover:bg-zinc-900 text-white border border-zinc-700 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md transition-all cursor-pointer active:scale-95"
+                      className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 border border-amber-300 transition-all cursor-pointer active:scale-95"
                     >
-                      <AppleIcon />
-                      <span>Sign In with Apple</span>
+                      <Shield className="w-4 h-4 fill-black" />
+                      <span>⚡ 1-Click Instant Owner Login (dgerving@gmail.com)</span>
                     </button>
 
                     <button
@@ -1010,6 +1025,16 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
                     >
                       <GoogleIcon />
                       <span>Sign In with Google</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSocial('apple')}
+                      disabled={isAuthenticating}
+                      className="w-full py-3 px-4 rounded-2xl bg-black hover:bg-zinc-900 text-white border border-zinc-700 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md transition-all cursor-pointer active:scale-95"
+                    >
+                      <AppleIcon />
+                      <span>Sign In with Apple</span>
                     </button>
 
                     <button
