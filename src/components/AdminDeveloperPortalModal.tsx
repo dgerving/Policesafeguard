@@ -233,7 +233,7 @@ export const AdminDeveloperPortalModal: React.FC<AdminDeveloperPortalModalProps>
                   Live Production Payments Gateway
                 </span>
                 <p className="text-zinc-300 leading-relaxed text-xs">
-                  Connect your live Stripe merchant account by providing your live secret key (<code className="text-amber-400">sk_live_...</code>) and publishable key (<code className="text-amber-400">pk_live_...</code>). All customer subscriptions ($14.99/mo and $49.99/yr) and simulated-to-live charges will process straight to your bank deposits.
+                  Connect your live Stripe merchant account by providing your live secret key (<code className="text-amber-400">sk_live_...</code>) and publishable key (<code className="text-amber-400">pk_live_...</code>). All customer subscriptions ($3.99/mo and $25.99/yr) and simulated-to-live charges will process straight to your bank deposits.
                 </p>
               </div>
 
@@ -315,20 +315,20 @@ export const AdminDeveloperPortalModal: React.FC<AdminDeveloperPortalModalProps>
                 <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="font-extrabold text-white text-xs">Monthly Subscription</span>
-                    <span className="font-mono font-black text-emerald-400 text-sm">$14.99 / mo</span>
+                    <span className="font-mono font-black text-emerald-400 text-sm">$3.99 / mo</span>
                   </div>
                   <p className="text-[11px] text-zinc-400">
-                    Includes 30-day free trial, auto-billed at $14.99/mo until canceled. Citizens can also choose to skip trial and pay immediately.
+                    Includes 30-day free trial, auto-billed at $3.99/mo until canceled. Citizens can also choose to skip trial and pay immediately.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="font-extrabold text-white text-xs">Annual Subscription</span>
-                    <span className="font-mono font-black text-amber-400 text-sm">$49.99 / yr</span>
+                    <span className="font-mono font-black text-amber-400 text-sm">$25.99 / yr</span>
                   </div>
                   <p className="text-[11px] text-zinc-400">
-                    No free trial period. Recurring annual billing ($49.99/year) charged immediately and auto-billed annually until canceled.
+                    No free trial period. Recurring annual billing ($25.99/year) charged immediately and auto-billed annually until canceled.
                   </p>
                 </div>
               </div>
@@ -476,8 +476,8 @@ export const AdminDeveloperPortalModal: React.FC<AdminDeveloperPortalModalProps>
                 <div className="p-3 bg-black rounded-xl border border-zinc-800 font-mono text-[10px] text-zinc-400 space-y-1 max-h-52 overflow-y-auto">
                   <div className="text-emerald-400">[SYSTEM] Express server mounted with Vite middleware on port 3000</div>
                   <div className="text-zinc-400">[AUTH] User authentication &amp; session tokens operational</div>
-                  <div className="text-zinc-400">[PAYMENTS] Monthly tier set to $14.99/mo (30-day free trial or immediate charge)</div>
-                  <div className="text-zinc-400">[PAYMENTS] Annual tier set to $49.99/yr (No trial, recurring annual billing)</div>
+                  <div className="text-zinc-400">[PAYMENTS] Monthly tier set to $3.99/mo (30-day free trial or immediate charge)</div>
+                  <div className="text-zinc-400">[PAYMENTS] Annual tier set to $25.99/yr (No trial, recurring annual billing)</div>
                   <div className="text-cyan-400">[LIVE STREAM] WebSocket rooms initialized for real-time witness audio &amp; video relay</div>
                   <div className="text-amber-400">[ADS] Impression revenue mapped to connected Stripe payouts</div>
                   <div className="text-zinc-500">[{new Date().toLocaleTimeString()}] Heartbeat OK • Zero memory leaks detected</div>

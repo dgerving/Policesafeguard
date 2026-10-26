@@ -4,7 +4,7 @@ import {
   MapPin, Globe, Volume2, ShieldAlert, CheckCircle2, ChevronRight,
   Download, Check, AlertCircle, AlertTriangle, X, Coins, Infinity as InfinityIcon, Share2,
   Menu, Cloud, Gift, ShieldCheck, Radio, Mic, Activity, RefreshCw, Server, HeartHandshake,
-  Maximize, Minimize, ExternalLink, Navigation, Zap
+  Maximize, Minimize, ExternalLink, Navigation, Zap, Camera
 } from 'lucide-react';
 import { 
   UserProfile, JurisdictionLaw, EvidenceCustodyRecord, MembershipTier, BillingCycle, ReferralRewardTier
@@ -17,7 +17,6 @@ import { JurisdictionGuideView } from './components/JurisdictionGuideView';
 import { UserProfileModal } from './components/UserProfileModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { LiveStripeSubscriptionPortalModal } from './components/LiveStripeSubscriptionPortalModal';
-import { AppMarketingVideoDemoModal } from './components/AppMarketingVideoDemoModal';
 import { ArrestLockdownModal } from './components/ArrestLockdownModal';
 import { LockdownScreen } from './components/LockdownScreen';
 import { PWADownloadModal } from './components/PWADownloadModal';
@@ -39,13 +38,18 @@ import { LawEnforcementCharityModal } from './components/LawEnforcementCharityMo
 import { VoiceEngine } from './services/voiceEngine';
 import { LiveStreamService } from './services/liveStreamService';
 import { AuthClient } from './services/authClient';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from './services/firebase';
 import { MandatoryLegalDisclaimerModal } from './components/MandatoryLegalDisclaimerModal';
-import { BailReliefVaultModal } from './components/BailReliefVaultModal';
 import { CommercialVideoAdModal } from './components/CommercialVideoAdModal';
 import { AdminDeveloperPortalModal } from './components/AdminDeveloperPortalModal';
 import { ServerActivityModal } from './components/ServerActivityModal';
 import { GpsJurisdictionService } from './services/gpsJurisdictionService';
 import { US_STATE_LIST } from './data/jurisdictions';
+import { PoliceScannerModal } from './components/PoliceScannerModal';
+import { PoliceScannerMiniBar } from './components/PoliceScannerMiniBar';
+import { FlockSurveillanceMapView } from './components/FlockSurveillanceMapView';
 
 type ActiveTab = 'live-monitor' | 'simulator' | 'evidence-vault' | 'jurisdictions';
 
@@ -239,10 +243,10 @@ export default function App() {
   const [accountManagementTab, setAccountManagementTab] = useState<'unsubscribe' | 'purge_personal' | 'delete_account'>('unsubscribe');
   const [isJurisdictionTermsModalOpen, setIsJurisdictionTermsModalOpen] = useState(false);
   const [isCharityModalOpen, setIsCharityModalOpen] = useState(false);
-  const [isBailVaultModalOpen, setIsBailVaultModalOpen] = useState(false);
   const [isSignoutAdOpen, setIsSignoutAdOpen] = useState(false);
   const [isStripePortalOpen, setIsStripePortalOpen] = useState(false);
-  const [isMarketingVideoDemoOpen, setIsMarketingVideoDemoOpen] = useState(false);
+  const [isPoliceScannerOpen, setIsPoliceScannerOpen] = useState(false);
+  const [isFlockMapOpen, setIsFlockMapOpen] = useState(false);
   const [isServerActivityModalOpen, setIsServerActivityModalOpen] = useState(false);
   const [isAdminPortalOpen, setIsAdminPortalOpen] = useState(false);
   const [activeAdminViewMode, setActiveAdminViewMode] = useState<'client' | 'admin'>('client');
@@ -315,35 +319,39 @@ export default function App() {
       }
     } catch (e) {}
   }, [userProfile.appTheme]);
-  const [isDisclaimerModalOpen, setIsDisclaimerModalOpen] = useState(() => {
-    try {
-      const accepted = localStorage.getItem('police_safeguard_legal_disclaimer_accepted') || localStorage.getItem('police_protection_legal_disclaimer_accepted') || localStorage.getItem('civicshield_legal_disclaimer_accepted');
-      return accepted !== 'true';
-    } catch (e) {
-      return true;
-    }
-  });
+  // User Agreement is now presented directly during sign-up inside AccountOnboardingModal, not before
+  const [isDisclaimerModalOpen, setIsDisclaimerModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       const path = (window.location.pathname || '').toLowerCase();
       const params = new URLSearchParams(window.location.search);
+      const token = localStorage.getItem('police_safeguard_auth_token') || localStorage.getItem('police_protection_auth_token');
+      const savedProfile = localStorage.getItem('police_safeguard_profile');
+      let parsedName = '';
+      try {
+        if (savedProfile) parsedName = JSON.parse(savedProfile)?.name || '';
+      } catch (e) {}
+      const hasAuth = !!(token && parsedName && parsedName !== 'Protected Citizen');
+
+      // Intent queries for download, signup, login, referral
       if (
+        params.get('download') === '1' || params.get('install') === '1' ||
         params.get('signup') === '1' || params.get('signup') === 'true' ||
         params.get('register') === '1' || params.get('join') === '1' ||
         params.get('login') === '1' || params.get('signin') === '1' ||
         params.get('account') || params.get('citizen') ||
         path === '/signup' || path === '/register' || path === '/login' || path === '/signin' ||
-        path.startsWith('/signup') || path.startsWith('/register') || path.startsWith('/login')
+        path === '/download' || path === '/install'
       ) {
+        if (!hasAuth) return true;
+      }
+
+      // Default: If user has no valid authenticated session, open by default to login / create profile page
+      if (!hasAuth) {
         return true;
       }
     }
-    try {
-      const accountCreated = localStorage.getItem('police_safeguard_account_created') || localStorage.getItem('police_protection_account_created') || localStorage.getItem('civicshield_account_created');
-      return accountCreated !== 'true';
-    } catch (e) {
-      return true;
-    }
+    return false;
   });
   const [paymentToast, setPaymentToast] = useState<string | null>(null);
 
@@ -363,11 +371,11 @@ export default function App() {
     }
   };
 
-  // Handle Ambassador / Friends & Family Promo Code Redemption
+  // Handle Promo Code Redemption
   const handlePromoSuccess = (updated: UserProfile) => {
     handleSaveProfile(updated);
     setIsPromoModalOpen(false);
-    setPaymentToast('🎉 Lifetime Pro Membership Activated! Unlimited access granted for lifetime ambassador support.');
+    setPaymentToast('✓ Promo code successfully applied! Full access granted.');
   };
 
   // Handle Free Premium Subscription reward from Referral Program
@@ -573,7 +581,17 @@ export default function App() {
       const isDownloadParam = params.get('download') === '1' || params.get('download') === 'true' || params.get('install') === '1' || params.get('install') === 'true';
       const isDownloadPath = window.location.pathname === '/download' || window.location.pathname === '/install';
       if (isDownloadParam || isDownloadPath) {
-        setIsPWAModalOpen(true);
+        const token = AuthClient.getToken();
+        const savedProfile = localStorage.getItem('police_safeguard_profile');
+        let parsedName = '';
+        try {
+          if (savedProfile) parsedName = JSON.parse(savedProfile)?.name || '';
+        } catch (e) {}
+        if (!token || !parsedName || parsedName === 'Protected Citizen') {
+          setIsAccountModalOpen(true);
+        } else {
+          setIsPWAModalOpen(true);
+        }
       }
 
       // Handle Referral / Account Invite Link: ?ref=SHIELD-XXXX
@@ -646,15 +664,64 @@ export default function App() {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
-  // Save profile changes
-  const handleSaveProfile = (updated: UserProfile) => {
+  // Persistent Authentication & Firestore Profile Rehydration across restarts/refreshes
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          if (!db) return;
+          const userRef = doc(db, 'users', fbUser.uid);
+          const snap = await getDoc(userRef);
+          if (snap.exists()) {
+            const remoteData = snap.data();
+            setUserProfile(prev => {
+              const remoteTier = remoteData.membershipTier || 'free';
+              const localTier = prev?.membershipTier || 'free';
+              const highestTier = (remoteTier === 'lifetime_pro' || localTier === 'lifetime_pro')
+                ? 'lifetime_pro'
+                : (remoteTier === 'all_encounters_pro' || localTier === 'all_encounters_pro')
+                ? 'all_encounters_pro'
+                : remoteTier;
+
+              const merged: UserProfile = {
+                ...prev,
+                ...remoteData,
+                id: fbUser.uid,
+                userId: fbUser.uid,
+                email: fbUser.email || prev.email,
+                name: remoteData.name || prev.name || fbUser.displayName || 'Protected Citizen',
+                membershipTier: highestTier,
+                billingCycle: remoteData.billingCycle || prev.billingCycle || 'monthly',
+                credits: Math.max(Number(remoteData.credits || 0), Number(prev.credits || 0), 5)
+              };
+              localStorage.setItem('police_safeguard_profile', JSON.stringify(merged));
+              return merged;
+            });
+          }
+        } catch (err) {
+          console.warn('[Firestore Profile Sync Notice]', err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Save profile changes and persist to Firestore + localStorage
+  const handleSaveProfile = async (updated: UserProfile) => {
     setUserProfile(updated);
     localStorage.setItem('police_safeguard_profile', JSON.stringify(updated));
     localStorage.removeItem('civicshield_profile');
+    try {
+      await AuthClient.updateProfile(updated);
+    } catch (e) {
+      console.warn('Profile sync error:', e);
+    }
   };
 
-  // Save tier change and optional credits
-  const handleSelectTier = (tier: MembershipTier, cycle?: BillingCycle, addedCredits?: number) => {
+  // Save tier change and optional credits and persist to Firestore + localStorage
+  const handleSelectTier = async (tier: MembershipTier, cycle?: BillingCycle, addedCredits?: number) => {
     const currentCreds = userProfile.credits ?? 5;
     const newCredits = addedCredits ? currentCreds + addedCredits : currentCreds;
     const updated: UserProfile = { 
@@ -666,6 +733,11 @@ export default function App() {
     setUserProfile(updated);
     localStorage.setItem('police_safeguard_profile', JSON.stringify(updated));
     localStorage.removeItem('civicshield_profile');
+    try {
+      await AuthClient.updateProfile(updated);
+    } catch (e) {
+      console.warn('Tier sync error:', e);
+    }
   };
 
   // Save new recorded session and asynchronously back up to multi-device cloud vault
@@ -893,10 +965,13 @@ export default function App() {
       <LiveStreamViewer
         sessionId={sharedFeedSessionId}
         onExit={() => {
+          // Security isolation: Witness viewers closing the stream must never be dropped into any citizen account
           try {
-            window.history.pushState({}, '', window.location.pathname.startsWith('/live/') ? '/' : window.location.pathname);
-          } catch (e) {}
-          setSharedFeedSessionId(null);
+            window.location.href = '/download';
+          } catch (e) {
+            setSharedFeedSessionId(null);
+            setIsAccountModalOpen(true);
+          }
         }}
       />
     );
@@ -1095,16 +1170,16 @@ export default function App() {
             <span className="font-mono text-amber-400 text-[10px] sm:text-xs hidden xs:inline">{userProfile.credits ?? 5}C</span>
           </button>
 
-          {/* Watch 2-Minute Marketing Video Demo Button */}
+          {/* Live Police Scanner Radio Button */}
           <button
-            id="header-marketing-video-btn"
-            onClick={() => setIsMarketingVideoDemoOpen(true)}
-            title="Watch 2-Minute Marketing Video Demonstration (Live App Showcase)"
-            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-gradient-to-r from-red-500/20 via-amber-500/20 to-red-500/20 hover:from-red-500/30 hover:to-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-black transition-all cursor-pointer shadow-md shrink-0 active:scale-95"
+            id="header-police-scanner-btn"
+            onClick={() => setIsPoliceScannerOpen(true)}
+            title="Listen in on Live Local Police Radio Scanner"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-xs font-black transition-all cursor-pointer shadow-sm shrink-0 active:scale-95"
           >
-            <Play className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
-            <span className="hidden xs:inline">DEMO</span>
-            <span className="px-1 py-0.2 rounded bg-red-500/30 text-red-300 text-[9px] font-black uppercase">2-MIN</span>
+            <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+            <span className="hidden sm:inline">SCANNER</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
           </button>
 
           {/* User Profile & Audio Settings Button */}
@@ -1240,8 +1315,33 @@ export default function App() {
 
         </div>
 
-        {/* Right Action Controls: Emergency Witness Broadcast & Audio Whisper */}
+        {/* Right Action Controls: Police Scanner, Emergency Witness Broadcast & Audio Whisper */}
         <div className="flex items-center gap-2.5">
+          <button
+            id="nav-police-scanner"
+            onClick={() => setIsPoliceScannerOpen(true)}
+            title="Listen in on Live Local Police Radio Scanner"
+            className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-zinc-900/90 hover:bg-zinc-800 text-amber-300 border border-amber-500/40 shadow-sm"
+          >
+            <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span className="hidden sm:inline">POLICE SCANNER</span>
+            <span className="sm:hidden">SCANNER</span>
+          </button>
+
+          <button
+            id="nav-flock-radar"
+            onClick={() => setIsFlockMapOpen(true)}
+            title="View Live Flock Safety Cameras & Surveillance Radar Map"
+            className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-purple-950/70 hover:bg-purple-900/80 text-purple-200 border border-purple-500/50 shadow-sm"
+          >
+            <Camera className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden sm:inline">FLOCK MAP</span>
+            <span className="sm:hidden">RADAR</span>
+            <span className="text-[9px] font-mono font-bold uppercase px-1 rounded bg-purple-500/30 text-purple-200">
+              RADAR
+            </span>
+          </button>
+
           <button
             id="tab-witness-network"
             onClick={() => setIsShareFeedModalOpen(true)}
@@ -1276,6 +1376,7 @@ export default function App() {
             onUpgradePrompt={() => handleOpenUpgradePortal()}
             onOpenPermissionsModal={() => setIsPermissionsModalOpen(true)}
             onEmergencyRefreshServer={handleEmergencyRefreshServer}
+            onOpenFlockMap={() => setIsFlockMapOpen(true)}
             isSuspended={false}
           />
         )}
@@ -1428,11 +1529,7 @@ export default function App() {
           setIsSubscriptionModalOpen(false);
           setIsPromoModalOpen(true);
         }}
-        onOpenBailVault={() => {
-          setIsSubscriptionModalOpen(false);
-          setIsBailVaultModalOpen(true);
-        }}
-        onOpenStripePortal={(config) => {
+                onOpenStripePortal={(config) => {
           setIsSubscriptionModalOpen(false);
           setStripePortalConfig({
             initialTier: config?.tier,
@@ -1446,6 +1543,10 @@ export default function App() {
       <LiveStripeSubscriptionPortalModal
         isOpen={isStripePortalOpen}
         onClose={() => setIsStripePortalOpen(false)}
+        onOpenPromoModal={() => {
+          setIsStripePortalOpen(false);
+          setIsPromoModalOpen(true);
+        }}
         userEmail={userProfile.email || ''}
         currentTier={userProfile.membershipTier}
         initialTier={stripePortalConfig.initialTier}
@@ -1455,13 +1556,6 @@ export default function App() {
           setIsStripePortalOpen(false);
           setPaymentToast('🎉 Subscription Confirmed! Official Stripe payment successfully routed.');
         }}
-      />
-
-      {/* 2-Minute Marketing Video Demonstration Modal */}
-      <AppMarketingVideoDemoModal
-        isOpen={isMarketingVideoDemoOpen}
-        onClose={() => setIsMarketingVideoDemoOpen(false)}
-        onOpenStripePortal={() => handleOpenUpgradePortal()}
       />
 
       {/* Arrest Emergency Encryption Modal */}
@@ -1514,14 +1608,17 @@ export default function App() {
           setIsMenuDrawerOpen(false);
           handleOpenAccountManagement(tab);
         }}
-        onOpenBailVault={() => setIsBailVaultModalOpen(true)}
-        onOpenStripePortal={() => {
+                onOpenStripePortal={() => {
           setIsMenuDrawerOpen(false);
           handleOpenUpgradePortal();
         }}
-        onOpenMarketingVideoDemo={() => {
+        onOpenPoliceScanner={() => {
           setIsMenuDrawerOpen(false);
-          setIsMarketingVideoDemoOpen(true);
+          setIsPoliceScannerOpen(true);
+        }}
+        onOpenFlockMap={() => {
+          setIsMenuDrawerOpen(false);
+          setIsFlockMapOpen(true);
         }}
         onToggleOnlineMode={() => {
           const next = userProfile.isCloudOnlineMode === false ? true : false;
@@ -1532,6 +1629,25 @@ export default function App() {
         }}
         onLogout={handleLogout}
       />
+
+      {/* Live Police Scanner Radio Modal & Background Mini Player */}
+      <PoliceScannerModal
+        isOpen={isPoliceScannerOpen}
+        onClose={() => setIsPoliceScannerOpen(false)}
+        userStateCode={jurisdiction?.stateCode || 'TX'}
+      />
+      <PoliceScannerMiniBar
+        onOpenFullModal={() => setIsPoliceScannerOpen(true)}
+      />
+
+      {/* Flock Camera Surveillance & ALPR Radar Map Modal */}
+      {isFlockMapOpen && (
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col">
+          <FlockSurveillanceMapView
+            onClose={() => setIsFlockMapOpen(false)}
+          />
+        </div>
+      )}
 
       {/* Standalone Emergency Share Modal Triggered from Menu */}
       <ShareLiveFeedModal
@@ -1551,7 +1667,8 @@ export default function App() {
         isOpen={isAccountModalOpen}
         canDismiss={(() => {
           try {
-            return (localStorage.getItem('police_safeguard_account_created') || localStorage.getItem('police_protection_account_created') || localStorage.getItem('civicshield_account_created')) === 'true';
+            const token = AuthClient.getToken();
+            return !!(token && userProfile.name && userProfile.name !== 'Protected Citizen');
           } catch {
             return false;
           }
@@ -1616,26 +1733,9 @@ export default function App() {
           setIsCharityModalOpen(false);
           handleOpenUpgradePortal();
         }}
-        onOpenBailVault={() => {
-          setIsCharityModalOpen(false);
-          setIsBailVaultModalOpen(true);
-        }}
-      />
+              />
 
-      {/* 5% Bail Relief Vault Modal */}
-      <BailReliefVaultModal
-        isOpen={isBailVaultModalOpen}
-        onClose={() => setIsBailVaultModalOpen(false)}
-        userProfile={userProfile}
-        referralCode={userProfile.referralCode}
-        onOpenSubscriptionModal={() => {
-          setIsBailVaultModalOpen(false);
-          handleOpenUpgradePortal();
-        }}
-        onDirectDonateSuccess={(amount) => {
-          setPaymentToast(`🏛️ Successfully contributed $${amount} to the Civilian Bail Relief Vault!`);
-        }}
-      />
+      
 
       {/* Mandatory Legal Disclaimer & FRE 902 Safety Acknowledgment Modal */}
       <MandatoryLegalDisclaimerModal

@@ -105,6 +105,17 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isValidId(broadcastId);
     }
 
+    // Flock and ALPR camera community locations for public surveillance transparency
+    match /flock_cameras/{cameraId} {
+      allow get, list: if true;
+      allow create: if isValidId(cameraId) &&
+                       incoming().id is string &&
+                       incoming().latitude is number &&
+                       incoming().longitude is number;
+      allow update: if isSignedIn() && isValidId(cameraId);
+      allow delete: if false;
+    }
+
     // Test connection endpoint for initial bootstrap verification
     match /test/connection {
       allow read: if true;

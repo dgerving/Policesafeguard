@@ -26,7 +26,7 @@ interface StateBoundingBox {
   centerLng: number;
 }
 
-const US_STATE_BOUNDS: StateBoundingBox[] = [
+export const US_STATE_BOUNDS: StateBoundingBox[] = [
   { code: 'AL', name: 'Alabama', minLat: 30.13, maxLat: 35.01, minLng: -88.47, maxLng: -84.89, centerLat: 32.80, centerLng: -86.79 },
   { code: 'AK', name: 'Alaska', minLat: 51.20, maxLat: 71.39, minLng: -179.15, maxLng: -129.98, centerLat: 61.37, centerLng: -152.40 },
   { code: 'AZ', name: 'Arizona', minLat: 31.33, maxLat: 37.00, minLng: -114.81, maxLng: -109.04, centerLat: 33.72, centerLng: -111.43 },
@@ -82,51 +82,81 @@ const US_STATE_BOUNDS: StateBoundingBox[] = [
 
 export class GpsJurisdictionService {
   /**
+   * Safe baseline fallback when geolocation is unavailable or denied
+   */
+  public static getFallbackJurisdiction(): GpsLocationResult {
+    const defaultState = 'CA';
+    const jurisdiction = getJurisdictionByCode(defaultState);
+    return {
+      latitude: 36.11,
+      longitude: -119.68,
+      accuracyMeters: 50000,
+      stateCode: defaultState,
+      stateName: jurisdiction.stateName,
+      city: 'California',
+      jurisdiction,
+      source: 'fallback'
+    };
+  }
+
+  /**
    * Performs precise GPS detection using browser geolocation with high accuracy,
    * then resolves the exact US state via reverse geocoding with offline geometric fallback.
+   * Silent-fails safely to default baseline instead of throwing and crashing on startup.
    */
   public static async detectPreciseJurisdiction(): Promise<GpsLocationResult> {
-    // 1. Check if running on Capacitor Native platform
-    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
-      try {
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 15000
-        });
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        const accuracy = position.coords.accuracy || 10;
-        return await this.resolveLocationAndJurisdiction(lat, lng, accuracy);
-      } catch (nativeErr) {
-        console.warn('Native Capacitor GPS failed, falling back to navigator:', nativeErr);
-      }
+    if (typeof window === 'undefined') {
+      return this.getFallbackJurisdiction();
     }
 
-    // 2. Browser Geolocation with high accuracy
-    return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined' || !navigator.geolocation) {
-        return reject(new Error('Geolocation is not supported by your browser.'));
+    // 1. Check if running on Capacitor Native platform
+    try {
+      if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+        try {
+          const position = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 15000
+          });
+          if (position?.coords) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy || 10;
+            return await this.resolveLocationAndJurisdiction(lat, lng, accuracy);
+          }
+        } catch (nativeErr) {
+          console.warn('Native Capacitor GPS check deferred, checking browser API:', nativeErr);
+        }
+      }
+    } catch {
+      // Gracefully continue to browser geolocation
+    }
+
+    // 2. Browser Geolocation with high accuracy and safe fallback
+    return new Promise((resolve) => {
+      if (!navigator || !navigator.geolocation) {
+        return resolve(this.getFallbackJurisdiction());
       }
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const accuracy = position.coords.accuracy || 10;
           try {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy || 10;
             const result = await this.resolveLocationAndJurisdiction(lat, lng, accuracy);
             resolve(result);
-          } catch (e) {
-            reject(e);
+          } catch {
+            resolve(this.getFallbackJurisdiction());
           }
         },
         (err) => {
-          reject(err);
+          console.info('Browser geolocation inactive or denied; continuing with default jurisdiction:', err.message);
+          resolve(this.getFallbackJurisdiction());
         },
         {
           enableHighAccuracy: true,
-          timeout: 12000,
+          timeout: 8000,
           maximumAge: 30000
         }
       );
@@ -154,7 +184,7 @@ export class GpsJurisdictionService {
         };
       }
     } catch (e) {
-      console.warn('Network reverse geocoding failed, using offline boundary match:', e);
+      console.warn('Network reverse geocoding deferred, using offline boundary match:', e);
     }
 
     // 2. Offline fallback: Match coordinates against precise 50-state geometric bounds
@@ -182,7 +212,6 @@ export class GpsJurisdictionService {
       const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
       if (res.ok) {
         const data = await res.json();
-        // principalSubdivisionCode often comes in as "US-CA" or "US-TX"
         const sub = (data.principalSubdivisionCode || '').toUpperCase();
         const city = data.city || data.locality || '';
         if (sub.startsWith('US-')) {
@@ -192,7 +221,7 @@ export class GpsJurisdictionService {
           }
         }
       }
-    } catch (e) {}
+    } catch {}
 
     // Secondary backup: OpenStreetMap Nominatim reverse
     try {
@@ -210,7 +239,7 @@ export class GpsJurisdictionService {
           return { stateCode: found.code, city };
         }
       }
-    } catch (e) {}
+    } catch {}
 
     return null;
   }

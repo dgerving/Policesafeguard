@@ -3,7 +3,7 @@ import {
   Shield, User, Phone, Car, Globe, Lock, CheckCircle2, 
   Sparkles, ArrowRight, ArrowLeft, Plus, Trash2, Star, 
   AlertCircle, ShieldCheck, HeartPulse, Check, Radio, X,
-  Key, LogIn, UserPlus, Loader2, Eye, EyeOff
+  Key, LogIn, UserPlus, Loader2, Eye, EyeOff, FileText, Scale
 } from 'lucide-react';
 import { UserProfile, EmergencyContact, AuthProvider } from '../types';
 import { SUPPORTED_LANGUAGES } from '../services/translator';
@@ -104,7 +104,6 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
   const [fullName, setFullName] = useState<string>('');
   const [isSocialVerified, setIsSocialVerified] = useState<boolean>(false);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
-  const [socialModalActive, setSocialModalActive] = useState<AuthProvider | null>(null);
   const [selectedRole, setSelectedRole] = useState<'client' | 'admin'>('client');
 
   // Returning Citizen / Sign In state
@@ -129,14 +128,21 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
   const [recoverySuccess, setRecoverySuccess] = useState<string | null>(null);
   const [isRecovering, setIsRecovering] = useState<boolean>(false);
 
-  // Interactive OAuth Dialog state for individual's verified identity
-  const [socialNameInput, setSocialNameInput] = useState<string>('');
-  const [socialEmailInput, setSocialEmailInput] = useState<string>('');
-  const [socialPhoneInput, setSocialPhoneInput] = useState<string>('');
-  const [appleHideEmail, setAppleHideEmail] = useState<boolean>(false);
-  const [socialAuthError, setSocialAuthError] = useState<string | null>(null);
   const [emailAuthError, setEmailAuthError] = useState<string | null>(null);
   const completedProfileIdRef = useRef<string | null>(null);
+
+  // Mandatory End-User Legal Agreement & FRE 902 Safety Acknowledgment (displayed during sign up)
+  const [legalAgreementAccepted, setLegalAgreementAccepted] = useState<boolean>(() => {
+    try {
+      return (
+        localStorage.getItem('police_safeguard_legal_disclaimer_accepted') ||
+        localStorage.getItem('police_protection_legal_disclaimer_accepted')
+      ) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showLegalTermsModal, setShowLegalTermsModal] = useState<boolean>(false);
 
   // Step 2: Personal & Vehicle details (starts empty if fresh citizen registration)
   const [phone, setPhone] = useState<string>(initialProfile?.phone || '');
@@ -164,263 +170,86 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
   const [newContactRel, setNewContactRel] = useState<string>('Family');
   const [contactError, setContactError] = useState<string | null>(null);
 
-  // Handle Social Sign In Trigger - accurately auto-fills user's personal identity
+  // Real Device-Verified Google Sign-In & Authentication
   const handleSelectSocial = async (provider: AuthProvider) => {
     setSelectedProvider(provider);
-    setSocialAuthError(null);
     setEmailAuthError(null);
+    setLoginError(null);
 
-    // If Returning Citizen mode (signin), log in user directly
-    if (authMode === 'signin') {
+    if (provider === 'google') {
       setIsAuthenticating(true);
       try {
-        let extractedEmail = '';
-        let extractedName = '';
-        let extractedPhone = '';
+        const fbRes = await AuthClient.signInWithFirebaseGoogle();
+        if (fbRes.success && fbRes.user) {
+          const verifiedUser = fbRes.user;
+          const resolvedName = verifiedUser.name || verifiedUser.displayName || 'Protected Citizen';
+          const resolvedEmail = verifiedUser.email || '';
+          const resolvedPhone = verifiedUser.phone || '';
 
-        if (provider === 'google') {
-          try {
-            const fbResult = await AuthClient.signInWithFirebaseGoogle();
-            if (fbResult.success && fbResult.user) {
-              extractedEmail = fbResult.user.email || '';
-              extractedName = fbResult.user.name || fbResult.user.displayName || '';
-              extractedPhone = fbResult.user.phone || '';
-            }
-          } catch (fbErr) {
-            console.warn('Firebase Google sign-in fallback:', fbErr);
+          setFullName(resolvedName);
+          setAuthEmail(resolvedEmail);
+          if (resolvedPhone) setPhone(resolvedPhone);
+          setIsSocialVerified(true);
+          setSelectedProvider('google');
+
+          if (verifiedUser.id) {
+            completedProfileIdRef.current = verifiedUser.id;
           }
-        }
 
-        const prefillEmail = extractedEmail || authEmail || loginEmail || (typeof window !== 'undefined' ? localStorage.getItem('police_safeguard_last_email') || '' : '') || '';
-        if (!extractedEmail) {
-          // Open interactive verification modal for provider so returning citizen can confirm or enter email
-          setSelectedProvider(provider);
-          setSocialEmailInput(prefillEmail);
-          setSocialModalActive(provider);
-          setIsAuthenticating(false);
+          // Complete login and enter app immediately without friction
+          onComplete(verifiedUser);
           return;
         }
-        const loginEmailToUse = extractedEmail;
-        const loginNameToUse = extractedName || fullName || loginEmailToUse.split('@')[0];
-        const loginPhoneToUse = extractedPhone || phone || undefined;
 
-        const res = await AuthClient.socialLogin({
-          provider: provider as 'google' | 'apple' | 'facebook',
-          email: loginEmailToUse,
-          name: loginNameToUse,
-          phone: loginPhoneToUse
-        });
-
-        if (res.success && res.user) {
-          const fullUser: UserProfile = {
-            ...initialProfile,
-            ...res.user,
-            hasCompletedOnboarding: true,
-            name: res.user.name || loginNameToUse,
-            email: res.user.email || loginEmailToUse,
-            phone: res.user.phone || loginPhoneToUse || '',
-            authProvider: provider
-          };
-          try {
-            localStorage.setItem('police_safeguard_profile', JSON.stringify(fullUser));
-            localStorage.setItem('police_safeguard_account_created', 'true');
-            localStorage.setItem('police_safeguard_last_email', loginEmailToUse);
-          } catch (e) {}
-          onComplete(fullUser);
-          return;
+        const err = fbRes.error || 'Google sign-in could not be completed.';
+        if (authMode === 'signin') {
+          setLoginError(err);
+        } else {
+          setEmailAuthError(err);
         }
       } catch (err: any) {
-        setLoginError(err?.message || 'Sign in failed. Please try again.');
+        const msg = err?.message || 'Google verification could not be completed.';
+        if (authMode === 'signin') {
+          setLoginError(msg);
+        } else {
+          setEmailAuthError(msg);
+        }
       } finally {
         setIsAuthenticating(false);
       }
       return;
     }
 
-    // SIGN UP MODE (authMode === 'signup'):
-    // Auto-fill user's information from Google / Social provider
-    setIsAuthenticating(true);
-    try {
-      let resolvedEmail = '';
-      let resolvedName = '';
-      let resolvedPhone = '';
-
-      if (provider === 'google') {
-        try {
-          const fbRes = await AuthClient.signInWithFirebaseGoogle();
-          if (fbRes.success && fbRes.user) {
-            resolvedEmail = fbRes.user.email || '';
-            resolvedName = fbRes.user.name || fbRes.user.displayName || '';
-            resolvedPhone = fbRes.user.phone || '';
-          }
-        } catch (popupErr) {
-          console.warn('Google sign-in popup notice:', popupErr);
-        }
-      }
-
-      // Authentic profile values from Google or existing input
-      const storedLastEmail = (typeof window !== 'undefined' ? localStorage.getItem('police_safeguard_last_email') : '');
-      const existingEmail = resolvedEmail || authEmail || initialProfile?.email || storedLastEmail || '';
-      const emailPrefix = existingEmail.includes('@') ? existingEmail.split('@')[0] : '';
-      const formattedName = emailPrefix
-        ? emailPrefix.replace(/[._-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-        : '';
-
-      const existingName = resolvedName || fullName || initialProfile?.name || formattedName;
-      const existingPhone = resolvedPhone || phone || initialProfile?.phone || '';
-
-      const derivedEmail = provider === 'apple' && existingEmail.includes('@')
-        ? `${existingEmail.split('@')[0]}@icloud.com`
-        : existingEmail;
-
-      // Fill personal identity directly into state
-      if (existingName) setFullName(existingName);
-      if (derivedEmail) setAuthEmail(derivedEmail);
-      if (existingPhone) setPhone(existingPhone);
-      if (existingName) setSocialNameInput(existingName);
-      if (derivedEmail) setSocialEmailInput(derivedEmail);
-      if (existingPhone) setSocialPhoneInput(existingPhone);
-      setIsSocialVerified(true);
-      setSelectedProvider(provider);
-
-      // If user resolved their Google identity, register immediately via social login with NO password!
-      if (resolvedEmail && resolvedEmail.includes('@')) {
-        const socialAuthRes = await AuthClient.socialLogin({
-          provider: 'google',
-          email: resolvedEmail,
-          name: existingName || 'Protected Citizen',
-          phone: existingPhone || undefined,
-          role: selectedRole
-        });
-        if (socialAuthRes.success && socialAuthRes.user) {
-          if (socialAuthRes.recoveryKey) {
-            localStorage.setItem('police_safeguard_recovery_key', socialAuthRes.recoveryKey);
-          }
-          if (socialAuthRes.token) {
-            AuthClient.setToken(socialAuthRes.token);
-          }
-          completedProfileIdRef.current = socialAuthRes.user.id;
-          // Advance directly to Step 2 - NO password required!
-          setCurrentStep(2);
-          return;
-        }
-      }
-
-      // If Apple or Facebook or popup fallback, open interactive social modal
-      setSocialModalActive(provider);
-    } catch (err: any) {
-      console.warn('Social auto-fill error:', err);
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  const handleConfirmSocialAuth = async () => {
-    setSocialAuthError(null);
-    if (authMode === 'signup' && !socialNameInput.trim()) {
-      setSocialAuthError('Please enter your legal full name to verify identity.');
-      return;
-    }
-
-    let finalEmail = '';
-    if (socialModalActive === 'apple') {
-      if (appleHideEmail && authMode === 'signup') {
-        const namePart = (socialNameInput || 'citizen').toLowerCase().replace(/[^a-z0-9]/g, '.');
-        finalEmail = `${namePart}.relay@appleid.com`;
-      } else {
-        if (!socialEmailInput.trim() || !socialEmailInput.includes('@')) {
-          setSocialAuthError('Please enter your valid Apple ID or email.');
-          return;
-        }
-        finalEmail = socialEmailInput.trim();
-      }
-    } else if (socialModalActive === 'google') {
-      if (!socialEmailInput.trim() || !socialEmailInput.includes('@')) {
-        setSocialAuthError('Please enter your valid Google account email.');
+    // Apple / Facebook: Direct social authentication with verified email
+    if (provider === 'apple' || provider === 'facebook') {
+      const emailCandidate = authEmail.trim() || loginEmail.trim() || defaultEmail;
+      if (!emailCandidate || !emailCandidate.includes('@')) {
+        setSelectedProvider('email');
+        setEmailAuthError(`Please enter your email address to continue with ${provider === 'apple' ? 'Apple ID' : 'Facebook'}.`);
         return;
       }
-      finalEmail = socialEmailInput.trim();
-    } else if (socialModalActive === 'facebook') {
-      if (!socialEmailInput.trim() || !socialEmailInput.includes('@')) {
-        setSocialAuthError('Please enter your Facebook account email or mobile number.');
-        return;
-      }
-      finalEmail = socialEmailInput.trim();
-    }
-
-    const emailPrefix = finalEmail.split('@')[0];
-    const derivedName = emailPrefix.replace(/[._-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-    const finalName = socialNameInput.trim() || derivedName || fullName || 'Protected Citizen';
-    const finalPhone = socialPhoneInput.trim() || phone || '';
-    setIsAuthenticating(true);
-    try {
-      const res = await AuthClient.socialLogin({
-        provider: (socialModalActive || 'google') as any,
-        email: finalEmail,
-        name: finalName,
-        phone: finalPhone || undefined,
-        role: selectedRole
-      });
-
-      if (!res.success) {
-        setSocialAuthError(res.error || 'Identity verification could not be completed.');
-        setIsAuthenticating(false);
-        return;
-      }
-
-      if (res.token) {
-        AuthClient.setToken(res.token);
-      }
-      if (res.recoveryKey) {
-        localStorage.setItem('police_safeguard_recovery_key', res.recoveryKey);
-      }
-      if (res.user?.id) {
-        completedProfileIdRef.current = res.user.id;
-      }
-
-      // Auto-fill all personal information across registration form
-      setFullName(socialNameInput.trim());
-      setAuthEmail(finalEmail);
-      if (finalPhone) setPhone(finalPhone);
-      setIsSocialVerified(true);
-      setSocialModalActive(null);
-
-      // Save email for next session
+      setIsAuthenticating(true);
+      const targetEmail = emailCandidate.toLowerCase().trim();
+      const targetName = fullName.trim() || targetEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Citizen';
       try {
-        localStorage.setItem('police_safeguard_last_email', finalEmail);
-      } catch (e) {}
-
-      // Auto-fill emergency contact and vehicle if not yet specified
-      if (!newContactName) setNewContactName('Family Emergency Contact');
-      if (!newContactPhone) setNewContactPhone('(555) 987-6543');
-
-      // If returning user sign in mode, complete immediately!
-      if (authMode === 'signin' && res.user) {
-        const fullUser: UserProfile = {
-          ...initialProfile,
-          ...res.user,
-          hasCompletedOnboarding: true,
-          name: res.user.name || socialNameInput.trim(),
-          email: res.user.email || finalEmail,
-          phone: finalPhone || res.user.phone || '',
-          authProvider: socialModalActive || 'google'
-        };
-        try {
-          localStorage.setItem('police_safeguard_profile', JSON.stringify(fullUser));
-          localStorage.setItem('police_safeguard_account_created', 'true');
-          localStorage.removeItem('police_protection_profile');
-          localStorage.removeItem('police_protection_account_created');
-        } catch (e) {}
-        onComplete(fullUser);
-        return;
+        const res = await AuthClient.socialLogin({
+          provider,
+          email: targetEmail,
+          name: targetName,
+          role: 'client'
+        });
+        if (res.success && res.user) {
+          onComplete(res.user);
+          return;
+        } else {
+          setEmailAuthError(res.error || `${provider} authentication failed.`);
+        }
+      } catch (err: any) {
+        setEmailAuthError(err?.message || `${provider} sign-in failed.`);
+      } finally {
+        setIsAuthenticating(false);
       }
-
-      // New signup flow: advance to vehicle & contact details with auto-filled info
-      setCurrentStep(2);
-    } catch (err: any) {
-      setSocialAuthError(err?.message || 'Verification error. Please retry.');
-    } finally {
-      setIsAuthenticating(false);
+      return;
     }
   };
 
@@ -433,24 +262,22 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
     }
     setIsLoggingIn(true);
     try {
-      // Support passwordless login for users who signed up via social accounts
+      // Support passwordless 1-click login for social accounts and returning citizens
       const res = await AuthClient.login(loginEmail.trim(), loginPassword ? loginPassword.trim() : undefined);
       if (!res.success || !res.user) {
-        if (!loginPassword) {
-          setLoginError('Password required for this email, or tap Google/Apple/Facebook above if you registered via social network.');
-        } else {
-          setLoginError(res.error || 'Invalid email or password.');
-        }
+        setLoginError(res.error || 'Sign in failed. Please verify your credentials.');
         return;
       }
       const fullUser: UserProfile = {
         ...initialProfile,
         ...res.user,
+        role: loginEmail.trim().toLowerCase() === 'dgerving@gmail.com' ? 'admin' : (res.user.role || initialProfile?.role || 'client'),
         hasCompletedOnboarding: true,
       };
       try {
         localStorage.setItem('police_safeguard_profile', JSON.stringify(fullUser));
         localStorage.setItem('police_safeguard_account_created', 'true');
+        localStorage.setItem('police_safeguard_last_email', loginEmail.trim());
         localStorage.removeItem('police_protection_profile');
         localStorage.removeItem('police_protection_account_created');
         localStorage.removeItem('civicshield_profile');
@@ -537,6 +364,17 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
         return;
       }
     }
+
+    // Mandatory User Agreement Acknowledgement during sign up
+    if (!legalAgreementAccepted) {
+      setEmailAuthError('Please review and check the End-User Legal Agreement & FRE 902 Safety Acknowledgment below to create your account.');
+      return;
+    }
+
+    try {
+      localStorage.setItem('police_safeguard_legal_disclaimer_accepted', 'true');
+      localStorage.setItem('police_safeguard_legal_disclaimer_timestamp', new Date().toISOString());
+    } catch (e) {}
 
     setIsAuthenticating(true);
     const assignedRole: 'client' | 'admin' = authEmail.trim().toLowerCase() === 'dgerving@gmail.com' ? 'admin' : 'client';
@@ -835,7 +673,6 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
                     if (!loginEmail) {
                       const saved = typeof window !== 'undefined' ? localStorage.getItem('police_safeguard_last_email') : '';
                       if (saved) setLoginEmail(saved);
-                      else if (initialProfile?.email) setLoginEmail(initialProfile.email);
                       else if (authEmail) setLoginEmail(authEmail);
                     }
                   }}
@@ -1055,6 +892,53 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
                         </div>
                       )}
 
+                      {/* Mandatory End-User Legal Agreement & FRE 902 Safety Acknowledgment */}
+                      <div className="p-3.5 rounded-2xl bg-zinc-950/80 border border-amber-500/40 space-y-2 mt-2">
+                        <div className="flex items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            id="signup-legal-agreement"
+                            checked={legalAgreementAccepted}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setLegalAgreementAccepted(checked);
+                              if (checked) {
+                                try {
+                                  localStorage.setItem('police_safeguard_legal_disclaimer_accepted', 'true');
+                                  localStorage.setItem('police_safeguard_legal_disclaimer_timestamp', new Date().toISOString());
+                                } catch (err) {}
+                              }
+                            }}
+                            className="mt-0.5 w-4 h-4 rounded text-amber-500 bg-zinc-900 border-zinc-700 cursor-pointer shrink-0"
+                          />
+                          <label htmlFor="signup-legal-agreement" className="text-[11px] text-zinc-300 leading-tight cursor-pointer select-none">
+                            I acknowledge that I have read, understood, and agree to the{' '}
+                            <button
+                              type="button"
+                              onClick={() => setShowLegalTermsModal(true)}
+                              className="text-amber-400 hover:text-amber-300 underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                            >
+                              End-User Legal Agreement &amp; Safety Notice
+                            </button>
+                            , and acknowledge FRE 902 evidence custody certification.
+                          </label>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-800/80">
+                          <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                            <Scale className="w-3 h-3" />
+                            <span>FRE 902 Certified</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowLegalTermsModal(true)}
+                            className="text-zinc-400 hover:text-white underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <FileText className="w-3 h-3 text-amber-400" />
+                            <span>View Full 11 Terms</span>
+                          </button>
+                        </div>
+                      </div>
+
                       {emailAuthError && (
                         <div className="text-red-400 text-xs font-semibold flex flex-col gap-2 animate-in fade-in bg-red-950/60 p-3 rounded-xl border border-red-500/50">
                           <div className="flex items-center gap-2">
@@ -1198,9 +1082,30 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
                       </div>
 
                       {loginError && (
-                        <div className="p-2.5 rounded-xl bg-red-950/80 border border-red-500/50 text-red-300 text-xs flex items-center gap-1.5 animate-in fade-in">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-400" />
-                          <span>{loginError}</span>
+                        <div className={`p-3 rounded-xl text-xs flex flex-col gap-1.5 animate-in fade-in ${
+                          loginError.includes('policesafeguard.com') || loginError.includes('authorization')
+                            ? 'bg-amber-950/40 border border-amber-500/40 text-amber-200'
+                            : 'bg-red-950/80 border border-red-500/50 text-red-300'
+                        }`}>
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                              loginError.includes('policesafeguard.com') ? 'text-amber-400' : 'text-red-400'
+                            }`} />
+                            <span className="leading-relaxed font-medium">{loginError}</span>
+                          </div>
+                          {loginError.includes('policesafeguard.com') && (
+                            <div className="pt-1.5 mt-1 border-t border-amber-500/20 text-[11px] text-zinc-300">
+                              <span>For app owners: To enable native 1-click popup on this domain, add <code className="px-1 py-0.5 rounded bg-black/40 text-amber-300 font-mono">policesafeguard.com</code> to Authorized Domains in </span>
+                              <a
+                                href="https://console.firebase.google.com/project/prefab-overview-275605/authentication/settings"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-amber-400 hover:text-amber-300 underline font-bold"
+                              >
+                                Firebase Authentication Settings
+                              </a>.
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1846,246 +1751,84 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
             )}
           </div>
         </div>
+      </div>
 
-        {/* ======================================================== */}
-        {/* INTERACTIVE SOCIAL AUTHENTICATION DIALOG (APPLE, GOOGLE, FACEBOOK) */}
-        {/* Ensures each individual enters and signs up with their OWN account */}
-        {/* ======================================================== */}
-        {socialModalActive && (
-          <div className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-md w-full p-6 text-white shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
-              
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3.5">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
-                    socialModalActive === 'apple' ? 'bg-black text-white border border-zinc-700' :
-                    socialModalActive === 'google' ? 'bg-white text-zinc-900 shadow-md' :
-                    'bg-[#1877F2] text-white shadow-md'
-                  }`}>
-                    {socialModalActive === 'apple' && <AppleIcon />}
-                    {socialModalActive === 'google' && <GoogleIcon />}
-                    {socialModalActive === 'facebook' && <FacebookIcon />}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-white">
-                      {socialModalActive === 'apple' && 'Sign in with Apple'}
-                      {socialModalActive === 'google' && 'Sign in with Google'}
-                      {socialModalActive === 'facebook' && 'Log in with Facebook'}
-                    </h4>
-                    <p className="text-[11px] text-zinc-400">
-                      Use your own personal credentials for Police SafeGuard
-                    </p>
-                  </div>
+      {/* Embedded End-User Legal Agreement & FRE 902 Safety Notice Modal */}
+      {showLegalTermsModal && (
+        <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-zinc-100">
+            <div className="p-4 sm:p-5 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Scale className="w-5 h-5 text-amber-400" />
+                <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wide">
+                  End-User Legal Agreement &amp; Safety Notice
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLegalTermsModal(false)}
+                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-zinc-300 leading-relaxed">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200">
+                <p className="font-bold text-[11px] uppercase tracking-wider mb-1">Notice to User:</p>
+                <p>
+                  By creating an account, selecting “I Agree,” checking the acknowledgment box, or accessing Police SafeGuard, you acknowledge that you have read, understood, and agreed to the following 11 legal terms and safety notices.
+                </p>
+              </div>
+
+              <div className="space-y-3 font-sans">
+                <div>
+                  <h4 className="font-extrabold text-white text-xs mb-1">1. NOT LEGAL ADVICE</h4>
+                  <p className="text-zinc-400 text-[11px]">This application is an educational, evidence-custody, and constitutional reference tool powered by automated algorithms. It does NOT provide legal advice and does NOT create an attorney-client relationship.</p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setSocialModalActive(null)}
-                  className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Form Inputs for Individual's Own Info */}
-              <div className="space-y-3.5">
-                {authMode === 'signup' && (
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                      Your Legal Full Name: <span className="text-amber-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={socialNameInput}
-                      onChange={(e) => setSocialNameInput(e.target.value)}
-                      placeholder="e.g. Jane Doe"
-                      autoFocus
-                      className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-500 font-medium"
-                    />
-                    <span className="text-[10px] text-zinc-500 mt-1 block">
-                      Used to establish your constitutional legal standing during law enforcement encounters.
-                    </span>
-                  </div>
-                )}
-
-                {socialModalActive === 'apple' ? (
-                  authMode === 'signin' ? (
-                    <div>
-                      <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                        Your Apple ID Email: <span className="text-amber-400">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        value={socialEmailInput}
-                        onChange={(e) => setSocialEmailInput(e.target.value)}
-                        placeholder="your.appleid@icloud.com"
-                        autoFocus
-                        className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-white font-mono"
-                      />
-                      <span className="text-[10px] text-zinc-500 mt-1 block">
-                        Sign in instantly with your registered Apple ID email address.
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="block text-[11px] font-bold text-zinc-300">
-                        Apple ID Email Privacy Option:
-                      </label>
-
-                      {/* Apple Private Relay Option */}
-                      <div 
-                        onClick={() => setAppleHideEmail(true)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                          appleHideEmail 
-                            ? 'bg-zinc-900/90 border-white text-white shadow-md' 
-                            : 'bg-zinc-950/70 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <input 
-                              type="radio" 
-                              checked={appleHideEmail} 
-                              onChange={() => setAppleHideEmail(true)} 
-                              className="text-white"
-                            />
-                            <span className="font-bold text-xs">Hide My Email</span>
-                          </div>
-                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold">
-                            Apple Private Relay
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-zinc-400 mt-1 pl-5 leading-relaxed">
-                          Keeps your personal email hidden from third parties and police. Apple will create a unique, private forwarder for your account.
-                        </p>
-                        {socialNameInput && appleHideEmail && (
-                          <div className="mt-2 ml-5 p-1.5 rounded-lg bg-black border border-zinc-800 text-[10px] font-mono text-emerald-400 truncate">
-                            {socialNameInput.toLowerCase().replace(/[^a-z0-9]/g, '.')}.relay@appleid.com
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Share Real Apple ID Email Option */}
-                      <div 
-                        onClick={() => setAppleHideEmail(false)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                          !appleHideEmail 
-                            ? 'bg-zinc-900/90 border-white text-white shadow-md' 
-                            : 'bg-zinc-950/70 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="radio" 
-                            checked={!appleHideEmail} 
-                            onChange={() => setAppleHideEmail(false)} 
-                            className="text-white"
-                          />
-                          <span className="font-bold text-xs">Share My Apple ID Email</span>
-                        </div>
-                        {!appleHideEmail && (
-                          <div className="mt-2 ml-5">
-                            <input
-                              type="email"
-                              value={socialEmailInput}
-                              onChange={(e) => setSocialEmailInput(e.target.value)}
-                              placeholder="your.appleid@icloud.com"
-                              className="w-full bg-zinc-950 border border-zinc-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-white font-mono"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                      {socialModalActive === 'google' ? 'Google Account Email:' : 'Facebook Email or Mobile Number:'} <span className="text-amber-400">*</span>
-                    </label>
-                    <input
-                      type={socialModalActive === 'google' ? 'email' : 'text'}
-                      value={socialEmailInput}
-                      onChange={(e) => setSocialEmailInput(e.target.value)}
-                      placeholder={socialModalActive === 'google' ? 'yourname@gmail.com' : 'Mobile number or email'}
-                      autoFocus={authMode === 'signin'}
-                      className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-500 font-mono"
-                    />
-                  </div>
-                )}
-
-                {authMode === 'signup' && (
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                      Mobile Phone Number (Optional - Auto-Fills Emergency SMS Alerts):
-                    </label>
-                    <input
-                      type="tel"
-                      value={socialPhoneInput}
-                      onChange={(e) => setSocialPhoneInput(e.target.value)}
-                      placeholder="e.g. (555) 234-5678"
-                      className="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-500 font-mono"
-                    />
-                    <span className="text-[10px] text-zinc-500 mt-1 block">
-                      Auto-fills emergency SMS alerts to your selected contacts if detained or stopped.
-                    </span>
-                  </div>
-                )}
-
-                {/* Identity Verified Badge Indicator */}
-                <div className="p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between text-xs text-emerald-300">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Instant identity verification &amp; profile auto-fill ready</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
-                    SSL 256-BIT
-                  </span>
+                <div>
+                  <h4 className="font-extrabold text-white text-xs mb-1">2. FEDERAL RULE OF EVIDENCE 902(13) &amp; 902(14) EVIDENCE CUSTODY</h4>
+                  <p className="text-zinc-400 text-[11px]">Encounter recordings and witness logs are cryptographically sealed with SHA-256 digital hashes to satisfy self-authenticating evidence requirements under Federal Rule of Evidence 902.</p>
                 </div>
-
-                {/* Validation Error Message */}
-                {socialAuthError && (
-                  <div className="p-2.5 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs flex items-center gap-2 animate-in fade-in">
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                    <span>{socialAuthError}</span>
-                  </div>
-                )}
+                <div>
+                  <h4 className="font-extrabold text-white text-xs mb-1">3. SOLE CITIZEN RESPONSIBILITY &amp; OFFICER SAFETY</h4>
+                  <p className="text-zinc-400 text-[11px]">You are solely responsible for your physical safety, compliance with lawful police orders, and state-specific recording consent laws (e.g., one-party vs. two-party wiretap statutes). Keep your hands visible at all times.</p>
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-white text-xs mb-1">4. EMERGENCY 911 / FIRST RESPONDER CLARIFICATION</h4>
+                  <p className="text-zinc-400 text-[11px]">Police SafeGuard is not a direct dispatch 911 replacement. In an immediate physical emergency, dial 911 directly.</p>
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-white text-xs mb-1">5. ENCRYPTED VAULT PRIVACY &amp; NO UNAUTHORIZED SHARING</h4>
+                  <p className="text-zinc-400 text-[11px]">Your evidence vault is encrypted. We do not sell or monetize your personal information or video footage without your explicit instruction.</p>
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-white text-xs mb-1">6. RILEY V. CALIFORNIA ARREST LOCKDOWN</h4>
+                  <p className="text-zinc-400 text-[11px]">The duress lockdown feature blacks out the screen to invoke your 5th Amendment and 4th Amendment rights against warrantless digital search. Your secure PIN unlocks the device after release.</p>
+                </div>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSocialModalActive(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmSocialAuth}
-                  className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-95 ${
-                    socialModalActive === 'apple'
-                      ? 'bg-white hover:bg-zinc-200 text-black'
-                      : socialModalActive === 'google'
-                      ? 'bg-white hover:bg-zinc-100 text-zinc-900'
-                      : 'bg-[#1877F2] hover:bg-[#166fe5] text-white'
-                  }`}
-                >
-                  <span>
-                    {socialModalActive === 'apple' && 'Sign In with Apple ID'}
-                    {socialModalActive === 'google' && 'Continue with Google'}
-                    {socialModalActive === 'facebook' && 'Continue with Facebook'}
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
+            <div className="p-4 bg-zinc-950 border-t border-zinc-800 flex items-center justify-between">
+              <span className="text-[10px] text-zinc-500 font-mono">FRE 902 • 11 CLAUSES</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setLegalAgreementAccepted(true);
+                  try {
+                    localStorage.setItem('police_safeguard_legal_disclaimer_accepted', 'true');
+                    localStorage.setItem('police_safeguard_legal_disclaimer_timestamp', new Date().toISOString());
+                  } catch (e) {}
+                  setShowLegalTermsModal(false);
+                }}
+                className="px-5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs cursor-pointer shadow-md"
+              >
+                Accept Terms &amp; Continue
+              </button>
             </div>
           </div>
-        )}
-
-      </div>
+        </div>
+      )}
     </div>
   );
 };

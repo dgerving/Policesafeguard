@@ -17,6 +17,7 @@ export interface AuthResponse {
   isNewUser?: boolean;
   message?: string;
   error?: string;
+  isDomainError?: boolean;
 }
 
 export class AuthClient {
@@ -133,24 +134,56 @@ export class AuthClient {
       const email = (fbUser.email || '').toLowerCase().trim();
       const name = fbUser.displayName || email.split('@')[0] || 'Protected Citizen';
 
+      // Read any active local profile (e.g. lifetime pro subscription, vehicle details)
+      let localProfile: any = null;
+      try {
+        const rawLocal = localStorage.getItem('police_safeguard_profile');
+        if (rawLocal) localProfile = JSON.parse(rawLocal);
+      } catch (e) {}
+
       // Sync directly with Firestore
       const userRef = doc(db, 'users', uid);
       let firestoreProfile: any = null;
       try {
         const snap = await getDoc(userRef);
         if (snap.exists()) {
-          firestoreProfile = snap.data();
-        } else {
+          const remoteData = snap.data();
+          // Merge remote with local, preserving highest tier
+          const remoteTier = remoteData.membershipTier || 'free';
+          const localTier = localProfile?.membershipTier || 'free';
+          const finalTier = (remoteTier === 'lifetime_pro' || localTier === 'lifetime_pro')
+            ? 'lifetime_pro'
+            : (remoteTier === 'all_encounters_pro' || localTier === 'all_encounters_pro')
+            ? 'all_encounters_pro'
+            : remoteTier;
+
           firestoreProfile = {
+            ...localProfile,
+            ...remoteData,
             userId: uid,
             id: uid,
             email,
-            name,
-            homeState: 'CA',
-            nativeLanguage: 'English',
-            membershipTier: 'free',
-            billingCycle: 'monthly',
-            role: email === 'dgerving@gmail.com' ? 'admin' : 'client',
+            name: remoteData.name || localProfile?.name || name,
+            membershipTier: finalTier,
+            credits: Math.max(Number(remoteData.credits || 0), Number(localProfile?.credits || 0), 5),
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(userRef, firestoreProfile, { merge: true });
+        } else {
+          // New Firestore user: inherit any locally activated subscription/vehicle details
+          const initialTier = localProfile?.membershipTier || 'free';
+          firestoreProfile = {
+            ...(localProfile || {}),
+            userId: uid,
+            id: uid,
+            email,
+            name: localProfile?.name || name,
+            homeState: localProfile?.homeState || 'CA',
+            nativeLanguage: localProfile?.nativeLanguage || 'English',
+            membershipTier: initialTier,
+            billingCycle: localProfile?.billingCycle || 'monthly',
+            credits: Math.max(Number(localProfile?.credits || 0), 5),
+            role: email === 'dgerving@gmail.com' ? 'admin' : (localProfile?.role || 'client'),
             hasCompletedOnboarding: true,
             authProvider: 'google',
             updatedAt: new Date().toISOString(),
@@ -162,30 +195,45 @@ export class AuthClient {
         console.warn('Firestore user profile sync note:', fsErr);
       }
 
-      // Sync with socialLogin handler (which handles server + local fallback seamlessly)
+      const activeUser = firestoreProfile || {
+        ...(localProfile || {}),
+        id: uid,
+        userId: uid,
+        email,
+        name: localProfile?.name || name,
+        membershipTier: localProfile?.membershipTier || 'free',
+        role: email === 'dgerving@gmail.com' ? 'admin' : (localProfile?.role || 'client'),
+        authProvider: 'google',
+        hasCompletedOnboarding: true
+      };
+
+      try {
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(activeUser));
+        localStorage.setItem('police_safeguard_account_created', 'true');
+        localStorage.setItem('police_safeguard_last_email', email);
+      } catch (e) {}
+
+      // Sync with socialLogin handler
       const serverRes = await this.socialLogin({
         provider: 'google',
         email,
-        name,
+        name: activeUser.name,
         providerId: uid,
-        phone: fbUser.phoneNumber || undefined,
+        phone: fbUser.phoneNumber || activeUser.phone || undefined,
         role: email === 'dgerving@gmail.com' ? 'admin' : 'client'
       });
 
       return {
         success: true,
-        user: firestoreProfile || serverRes.user || { id: uid, email, name, role: email === 'dgerving@gmail.com' ? 'admin' : 'client' },
+        user: activeUser,
         token: serverRes.token,
-        message: 'Signed in successfully via Google Authentication'
+        message: 'Signed in and verified successfully via Google Authentication'
       };
     } catch (err: any) {
-      console.warn('Firebase Google Sign-In note:', err);
-      const isDomainError = err?.code === 'auth/unauthorized-domain' || (err?.message && err.message.toLowerCase().includes('unauthorized domain'));
+      console.warn('Firebase Google Sign-In error:', err?.message || err);
       return {
         success: false,
-        error: isDomainError
-          ? 'Firebase custom domain authorization required in Firebase Console. You can verify your identity directly with your email below!'
-          : (err?.message || 'Google sign-in was cancelled or encountered a network error.')
+        error: err?.message || 'Google sign-in was cancelled or unavailable. Please sign in with your email and password.'
       };
     }
   }
@@ -288,11 +336,22 @@ export class AuthClient {
     const isAdmin = cleanEmail === 'dgerving@gmail.com';
     const role: 'client' | 'admin' = isAdmin ? 'admin' : 'client';
 
+    let activeProfile: any = null;
+    try {
+      const raw = localStorage.getItem(PROFILE_KEY);
+      if (raw) activeProfile = JSON.parse(raw);
+    } catch (e) {}
+
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password })
+        body: JSON.stringify({ 
+          email: cleanEmail, 
+          password,
+          membershipTier: activeProfile?.membershipTier || (isAdmin ? 'lifetime_pro' : undefined),
+          credits: activeProfile?.credits
+        })
       });
       const data = await this.safeJsonParse(res);
       if (res.ok && data.success) {
@@ -300,8 +359,26 @@ export class AuthClient {
           this.setToken(data.token);
         }
         if (data.user) {
-          localStorage.setItem(PROFILE_KEY, JSON.stringify(data.user));
-          this.saveAccountLocally(cleanEmail, data.user, password);
+          const existingTier = activeProfile?.membershipTier;
+          const remoteTier = data.user.membershipTier;
+          const finalTier = (isAdmin || existingTier === 'lifetime_pro' || remoteTier === 'lifetime_pro')
+            ? 'lifetime_pro'
+            : (existingTier === 'all_encounters_pro' || remoteTier === 'all_encounters_pro')
+            ? 'all_encounters_pro'
+            : (remoteTier || existingTier || 'free');
+
+          const finalUser: UserProfile = {
+            ...activeProfile,
+            ...data.user,
+            email: cleanEmail,
+            role: isAdmin ? 'admin' : (data.user.role || activeProfile?.role || 'client'),
+            membershipTier: finalTier,
+            credits: isAdmin ? 999 : Math.max(Number(data.user.credits || 0), Number(activeProfile?.credits || 0), 5)
+          };
+
+          localStorage.setItem(PROFILE_KEY, JSON.stringify(finalUser));
+          this.saveAccountLocally(cleanEmail, finalUser, password);
+          return { ...data, user: finalUser };
         }
         return data;
       }
@@ -313,19 +390,37 @@ export class AuthClient {
     const savedAccounts = this.getSavedAccounts();
     const existing = savedAccounts[cleanEmail];
 
-    // Check currently cached active profile
-    let activeProfile: any = null;
-    try {
-      const raw = localStorage.getItem(PROFILE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.email?.toLowerCase() === cleanEmail) {
-          activeProfile = parsed;
-        }
+    // Password verification: require matching credentials if account was created with a password
+    if (existing && existing.passwordHash && !isAdmin) {
+      if (!password) {
+        return {
+          success: false,
+          error: 'An account password is required to log in. Please enter your credentials.'
+        };
       }
-    } catch (e) {}
+      const inputHash = btoa(password);
+      if (existing.passwordHash !== inputHash) {
+        return {
+          success: false,
+          error: 'Invalid password. Please check your credentials or reset your password using your Recovery Key.'
+        };
+      }
+    }
 
-    const resolvedUser: UserProfile = existing?.user || activeProfile || this.createDefaultProfile(cleanEmail, cleanEmail.split('@')[0], role);
+    const existingTier = activeProfile?.membershipTier;
+    const finalTier = (isAdmin || existingTier === 'lifetime_pro')
+      ? 'lifetime_pro'
+      : (existingTier === 'all_encounters_pro')
+      ? 'all_encounters_pro'
+      : (existingTier || 'free');
+
+    const resolvedUser: UserProfile = {
+      ...(existing?.user || activeProfile || this.createDefaultProfile(cleanEmail, cleanEmail.split('@')[0], role)),
+      email: cleanEmail,
+      role: isAdmin ? 'admin' : role,
+      membershipTier: finalTier,
+      credits: isAdmin ? 999 : Math.max(Number(activeProfile?.credits || existing?.user?.credits || 5), 5)
+    };
 
     const token = this.generateToken(resolvedUser.id || `usr_${cleanEmail.replace(/[^a-z0-9]/g, '_')}_${Date.now()}`, cleanEmail, resolvedUser.role || role);
     this.setToken(token);
@@ -361,11 +456,23 @@ export class AuthClient {
     const isAdmin = cleanEmail === 'dgerving@gmail.com' || params.role === 'admin';
     const role: 'client' | 'admin' = isAdmin ? 'admin' : (params.role || 'client');
 
+    let activeProfile: any = null;
+    try {
+      const raw = localStorage.getItem(PROFILE_KEY);
+      if (raw) activeProfile = JSON.parse(raw);
+    } catch (e) {}
+
     try {
       const res = await fetch('/api/auth/social', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...params, email: cleanEmail, role })
+        body: JSON.stringify({ 
+          ...params, 
+          email: cleanEmail, 
+          role,
+          membershipTier: activeProfile?.membershipTier || (isAdmin ? 'lifetime_pro' : undefined),
+          credits: activeProfile?.credits
+        })
       });
       const data = await this.safeJsonParse(res);
       if (res.ok && data.success) {
@@ -373,8 +480,26 @@ export class AuthClient {
           this.setToken(data.token);
         }
         if (data.user) {
-          localStorage.setItem(PROFILE_KEY, JSON.stringify(data.user));
-          this.saveAccountLocally(cleanEmail, data.user, params.password);
+          const existingTier = activeProfile?.membershipTier;
+          const remoteTier = data.user.membershipTier;
+          const finalTier = (isAdmin || existingTier === 'lifetime_pro' || remoteTier === 'lifetime_pro')
+            ? 'lifetime_pro'
+            : (existingTier === 'all_encounters_pro' || remoteTier === 'all_encounters_pro')
+            ? 'all_encounters_pro'
+            : (remoteTier || existingTier || 'free');
+
+          const finalUser: UserProfile = {
+            ...activeProfile,
+            ...data.user,
+            email: cleanEmail,
+            role: isAdmin ? 'admin' : (data.user.role || activeProfile?.role || 'client'),
+            membershipTier: finalTier,
+            credits: isAdmin ? 999 : Math.max(Number(data.user.credits || 0), Number(activeProfile?.credits || 0), 5)
+          };
+
+          localStorage.setItem(PROFILE_KEY, JSON.stringify(finalUser));
+          this.saveAccountLocally(cleanEmail, finalUser, params.password);
+          return { ...data, user: finalUser };
         }
         return data;
       }
@@ -494,15 +619,44 @@ export class AuthClient {
     try {
       const raw = localStorage.getItem(PROFILE_KEY);
       const current = raw ? JSON.parse(raw) : {};
-      const updated = { ...current, ...updates, updatedAt: new Date().toISOString() };
+      
+      // Preserve active subscription status and credits
+      const currentTier = current.membershipTier;
+      const incomingTier = updates.membershipTier;
+      const preservedTier = (currentTier === 'lifetime_pro' || incomingTier === 'lifetime_pro')
+        ? 'lifetime_pro'
+        : (currentTier === 'all_encounters_pro' || incomingTier === 'all_encounters_pro')
+        ? 'all_encounters_pro'
+        : (incomingTier || currentTier || 'free');
+
+      const updated = { 
+        ...current, 
+        ...updates, 
+        membershipTier: preservedTier,
+        updatedAt: new Date().toISOString() 
+      };
       localStorage.setItem(PROFILE_KEY, JSON.stringify(updated));
 
-      // Attempt async sync to Firestore
-      if (updated.id) {
+      // Attempt sync to Firestore using authenticated UID
+      const uid = auth.currentUser?.uid || updated.userId || updated.id;
+      if (uid) {
         try {
-          const userRef = doc(db, 'users', updated.id);
-          setDoc(userRef, updated, { merge: true }).catch(() => {});
-        } catch (e) {}
+          const userRef = doc(db, 'users', uid);
+          const firestorePayload = {
+            ...updated,
+            userId: uid,
+            id: uid,
+            name: (updated.name || current.name || 'Citizen').slice(0, 100),
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(userRef, firestorePayload, { merge: true });
+        } catch (e) {
+          console.warn('Firestore profile sync note:', e);
+        }
+      }
+
+      if (updated.email) {
+        this.saveAccountLocally(updated.email, updated);
       }
 
       return updated as UserProfile;

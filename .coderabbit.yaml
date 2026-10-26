@@ -1,29 +1,31 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: "en-US"
+early_access: false
 reviews:
-  profile: "chill"
+  profile: "assertive"
   request_changes_workflow: false
   high_level_summary: true
+  poem: false
   review_status: true
   collapse_walkthrough: false
   auto_review:
     enabled: true
     drafts: false
+    base_branches:
+      - "main"
+      - "master"
+  tools:
+    ast-grep:
+      enabled: true
+    shellcheck:
+      enabled: true
+    biome:
+      enabled: true
+    markdownlint:
+      enabled: true
 chat:
   auto_reply: true
-path_instructions:
-  - path: "src/**"
-    instructions: |
-      Review for TypeScript correctness, React/Next.js patterns, and frontend accessibility.
-      Flag risky state management, data leakage, or user-facing issues, and prefer minimal, maintainable fixes.
-  - path: "api/**"
-    instructions: |
-      Review for API security, validation, and error handling.
-      Ensure endpoints avoid exposing sensitive data and that request validation is explicit.
-  - path: "server/**"
-    instructions: |
-      Review for security, performance, and production robustness.
-      Flag unsafe assumptions, missing validation, or insecure handling of user input or secrets.
-  - path: "**/*.ts"
-    instructions: |
-      Prefer clear, typed code and explicit error handling.
-      Avoid unnecessary complexity and ensure changes remain easy to reason about.
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: "auto"

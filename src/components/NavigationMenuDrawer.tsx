@@ -3,7 +3,7 @@ import {
   X, Shield, Video, Play, FileText, Scale, User, Lock, Sparkles, 
   ChevronRight, Download, RefreshCw, Radio, Gift, Mic, ShieldCheck, 
   UserX, EyeOff, HeartHandshake, LogOut, CheckCircle2,
-  ExternalLink
+  ExternalLink, Camera
 } from 'lucide-react';
 import { UserProfile, JurisdictionLaw } from '../types';
 import { AppUpdateService } from '../services/appUpdateService';
@@ -29,11 +29,11 @@ interface NavigationMenuDrawerProps {
   onOpenOfficialDomainModal?: () => void;
   onOpenPWADownloadModal: () => void;
   onOpenAccountManagement: (tab?: 'unsubscribe' | 'purge_personal' | 'delete_account') => void;
-  onOpenBailVault?: () => void;
   onToggleOnlineMode?: () => void;
   onOpenVoiceCommandsModal?: () => void;
   onOpenStripePortal?: () => void;
-  onOpenMarketingVideoDemo?: () => void;
+  onOpenPoliceScanner?: () => void;
+  onOpenFlockMap?: () => void;
   onLogout?: () => void;
 }
 
@@ -50,13 +50,14 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
   onOpenPermissionsModal,
   onOpenWitnessModal,
   onOpenReferralModal,
+  onOpenPromoModal,
   onOpenCharityModal,
   onOpenPWADownloadModal,
   onOpenAccountManagement,
-  onOpenBailVault,
   onOpenVoiceCommandsModal,
   onOpenStripePortal,
-  onOpenMarketingVideoDemo,
+  onOpenPoliceScanner,
+  onOpenFlockMap,
   onLogout
 }) => {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -114,10 +115,10 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
             </div>
             <div className="min-w-0 truncate">
               <div className="font-extrabold text-sm text-white truncate">
-                {userProfile.name || 'Protected Citizen'}
+                {userProfile.name || 'Sign In / Create Profile'}
               </div>
               <div className="text-[11px] text-zinc-400 truncate">
-                {userProfile.email || 'Constitutional Defense Active'}
+                {userProfile.email || 'Tap to authenticate profile'}
               </div>
             </div>
           </div>
@@ -193,32 +194,6 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
               Core Protection Tools
             </span>
             <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 divide-y divide-zinc-800/60 overflow-hidden shadow-sm">
-              
-              {/* Marketing Video Demonstration */}
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  if (onOpenMarketingVideoDemo) onOpenMarketingVideoDemo();
-                }}
-                className="w-full p-3 flex items-center justify-between text-left hover:bg-zinc-850/60 transition-colors cursor-pointer text-zinc-200 bg-gradient-to-r from-amber-500/10 via-transparent to-red-500/10"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500/30 to-red-500/30 border border-amber-500/50 flex items-center justify-center text-amber-400 shrink-0">
-                    <Video className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-xs text-white flex items-center gap-1.5">
-                      <span>🎬 Marketing Video Demonstration</span>
-                      <span className="text-[9px] font-black bg-red-500/20 text-red-300 px-1.5 py-0.2 rounded border border-red-500/30">
-                        2-MIN DEMO
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-zinc-400">Live app showcase, fictitious traffic stop &amp; feature walkthrough</div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
-              </button>
 
               <button
                 type="button"
@@ -237,6 +212,58 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
                   <div>
                     <div className="font-bold text-xs text-white">Live Incident Dashcam</div>
                     <div className="text-[10px] text-zinc-400">Audio visualizer, GPS HUD &amp; instant tamper-proof recorder</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
+              </button>
+
+              {/* Police Scanner Radio */}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenPoliceScanner) onOpenPoliceScanner();
+                }}
+                className="w-full p-3 flex items-center justify-between text-left hover:bg-zinc-850/60 transition-colors cursor-pointer text-zinc-200"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                    <Radio className="w-4 h-4 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                      <span>Live Police Scanner Radio</span>
+                      <span className="text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/30">
+                        LIVE
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-400">Listen in on local police dispatch radio in real time</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
+              </button>
+
+              {/* Flock Camera Surveillance Map & ALPR Radar */}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenFlockMap) onOpenFlockMap();
+                }}
+                className="w-full p-3 flex items-center justify-between text-left hover:bg-zinc-850/60 transition-colors cursor-pointer text-zinc-200"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
+                    <Camera className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-white flex items-center gap-1.5">
+                      <span>Flock Camera Surveillance Map</span>
+                      <span className="text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded border border-purple-500/30">
+                        LIVE RADAR
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-400">Live ALPR radar &amp; public surveillance camera locations</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
@@ -390,25 +417,7 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
                 <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  if (onOpenBailVault) onOpenBailVault();
-                }}
-                className="w-full p-3 flex items-center justify-between text-left hover:bg-zinc-850/60 transition-colors cursor-pointer text-zinc-200"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-xs text-white">Bail Relief Vault (5% Pledge)</div>
-                    <div className="text-[10px] text-zinc-400">Wrongful accusation emergency defense fund</div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
-              </button>
+              
 
               <button
                 type="button"
@@ -496,8 +505,28 @@ export const NavigationMenuDrawer: React.FC<NavigationMenuDrawerProps> = ({
                     <Gift className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="font-bold text-xs text-white">Ambassador Referral Program</div>
-                    <div className="text-[10px] text-zinc-400">Give 1 month free, earn free Pro months</div>
+                    <div className="font-bold text-xs text-white">Referral Rewards Program</div>
+                    <div className="text-[10px] text-zinc-400">Invite friends &amp; earn free Pro months</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenPromoModal) onOpenPromoModal();
+                }}
+                className="w-full p-3 flex items-center justify-between text-left hover:bg-zinc-850/60 transition-colors cursor-pointer text-zinc-200"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-white">Enter Promo Code</div>
+                    <div className="text-[10px] text-zinc-400">Apply a promotional or gift code</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />

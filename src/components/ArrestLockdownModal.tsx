@@ -97,7 +97,7 @@ export const ArrestLockdownModal: React.FC<ArrestLockdownModalProps> = ({
               className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 hover:from-amber-300 text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-amber-950/50 cursor-pointer transition-all active:scale-95"
             >
               <Sparkles className="w-4 h-4 text-black" />
-              <span>Unlock Arrest Lockdown with Pro ($14.99/mo)</span>
+              <span>Unlock Arrest Lockdown with Pro ($3.99/mo)</span>
             </button>
             <button
               onClick={onClose}

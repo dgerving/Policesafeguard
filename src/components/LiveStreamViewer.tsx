@@ -3,7 +3,7 @@ import {
   Radio, Video, Shield, ShieldAlert, CheckCircle2, MapPin, Clock, 
   ExternalLink, Phone, AlertTriangle, Scale, Lock, Download, Copy, 
   ArrowLeft, RefreshCw, Volume2, VolumeX, User, Eye, Sparkles, Navigation,
-  ChevronUp, Smartphone, FileText
+  ChevronUp, Smartphone, FileText, X
 } from 'lucide-react';
 import { LiveStreamSessionData, TranscriptEntry } from '../types';
 import { LiveStreamService } from '../services/liveStreamService';
@@ -112,9 +112,50 @@ export const LiveStreamViewer: React.FC<LiveStreamViewerProps> = ({
   const lastFrameTimeRef = useRef(Date.now());
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const isAudioMutedRef = useRef(false);
+  const audioQueueRef = useRef<string[]>([]);
+  const isPlayingAudioRef = useRef(false);
+  const [hasReceivedAudioFeed, setHasReceivedAudioFeed] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+
   useEffect(() => {
     isAudioMutedRef.current = isAudioMuted;
+    if (!isAudioMuted && audioQueueRef.current.length > 0 && !isPlayingAudioRef.current) {
+      playNextAudioChunk();
+    }
   }, [isAudioMuted]);
+
+  const playNextAudioChunk = () => {
+    if (audioQueueRef.current.length === 0 || isAudioMutedRef.current) {
+      isPlayingAudioRef.current = false;
+      return;
+    }
+    isPlayingAudioRef.current = true;
+    const chunk = audioQueueRef.current.shift();
+    if (!chunk) {
+      isPlayingAudioRef.current = false;
+      return;
+    }
+    try {
+      const audio = new Audio(chunk);
+      audio.volume = 1.0;
+      audio.onended = () => {
+        playNextAudioChunk();
+      };
+      audio.onerror = () => {
+        playNextAudioChunk();
+      };
+      audio.play().then(() => {
+        setAutoplayBlocked(false);
+      }).catch((playErr) => {
+        if (playErr?.name === 'NotAllowedError') {
+          setAutoplayBlocked(true);
+        }
+        isPlayingAudioRef.current = false;
+      });
+    } catch {
+      isPlayingAudioRef.current = false;
+    }
+  };
 
   // Subscribe to real-time direct camera video stream and audio via WebSocket / SSE
   useEffect(() => {
@@ -145,12 +186,17 @@ export const LiveStreamViewer: React.FC<LiveStreamViewerProps> = ({
         }
       },
       onAudio: (audioDataUrl) => {
-        if (!isMounted || isAudioMutedRef.current) return;
-        try {
-          const a = new Audio(audioDataUrl);
-          a.volume = 1.0;
-          a.play().catch(() => {});
-        } catch (e) {}
+        if (!isMounted) return;
+        setHasReceivedAudioFeed(true);
+        if (isAudioMutedRef.current) return;
+        audioQueueRef.current.push(audioDataUrl);
+        // Cap queue to last 6 chunks to guarantee real-time latency
+        if (audioQueueRef.current.length > 6) {
+          audioQueueRef.current.shift();
+        }
+        if (!isPlayingAudioRef.current) {
+          playNextAudioChunk();
+        }
       },
       onStatusUpdate: (updated) => {
         if (!isMounted) return;
@@ -397,6 +443,21 @@ export const LiveStreamViewer: React.FC<LiveStreamViewerProps> = ({
               <span>ARREST LOCKDOWN ENGAGED • SEALED</span>
             </div>
           )}
+
+          {autoplayBlocked && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsAudioMuted(false);
+                setAutoplayBlocked(false);
+                playNextAudioChunk();
+              }}
+              className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs px-4 py-2 rounded-xl shadow-xl flex items-center gap-2 z-30 cursor-pointer animate-bounce"
+            >
+              <Volume2 className="w-4 h-4 fill-black" />
+              <span>Tap to Unmute Audio Feed</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-6 bg-gradient-to-b from-zinc-900 to-black text-center">
@@ -598,7 +659,7 @@ export const LiveStreamViewer: React.FC<LiveStreamViewerProps> = ({
         </div>
 
         <a
-          href={AppUrlHelper.getLiveAccountDownloadUrl()}
+          href="/download"
           className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-lg transition-all shrink-0 cursor-pointer"
         >
           <Download className="w-3.5 h-3.5" />
@@ -781,10 +842,10 @@ export const LiveStreamViewer: React.FC<LiveStreamViewerProps> = ({
             {onExit && (
               <button
                 onClick={onExit}
-                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer shrink-0"
-                title="Back to Dashboard"
+                className="p-1.5 rounded-lg bg-zinc-850 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors cursor-pointer shrink-0 border border-zinc-800"
+                title="Close Witness Stream"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </button>
             )}
 
@@ -838,7 +899,7 @@ export const LiveStreamViewer: React.FC<LiveStreamViewerProps> = ({
 
             {/* Direct App Download Button for Viewers */}
             <a
-              href={AppUrlHelper.getLiveAccountDownloadUrl()}
+              href="/download"
               className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-black text-xs font-black transition-all shadow-md cursor-pointer shrink-0"
             >
               <Download className="w-3.5 h-3.5" />

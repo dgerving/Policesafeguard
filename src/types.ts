@@ -122,6 +122,7 @@ export type UserRole = 'client' | 'admin';
 
 export interface UserProfile {
   id?: string;
+  userId?: string;
   email?: string;
   phone?: string;
   authProvider?: AuthProvider;

@@ -189,7 +189,7 @@ export class AppUrlHelper {
   /**
    * Generates official live account download link with immediate sign-up onboarding
    */
-  public static getLiveAccountDownloadUrl(referralCode?: string, userName?: string, forceMode?: 'branded' | 'direct'): string {
+  public static getLiveAccountDownloadUrl(referralCode?: string, _userName?: string, forceMode?: 'branded' | 'direct'): string {
     const base = forceMode === 'branded' ? this.getOfficialBrandedBaseUrl() : this.getPublicBroadcastBaseUrl();
     
     const params = new URLSearchParams();
@@ -197,9 +197,6 @@ export class AppUrlHelper {
     params.set('signup', '1');
     if (referralCode) {
       params.set('ref', referralCode);
-    }
-    if (userName && userName.trim()) {
-      params.set('citizen', userName.trim());
     }
     return `${base}/?${params.toString()}`;
   }

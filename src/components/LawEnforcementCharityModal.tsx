@@ -11,14 +11,12 @@ interface LawEnforcementCharityModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenSubscriptionModal?: () => void;
-  onOpenBailVault?: () => void;
 }
 
 export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProps> = ({
   isOpen,
   onClose,
   onOpenSubscriptionModal,
-  onOpenBailVault
 }) => {
   const [impactData, setImpactData] = useState<CharityImpactData | null>(null);
 
@@ -79,7 +77,7 @@ export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProp
                   <strong>Police SafeGuard</strong> is designed to help eliminate unfair, unjust, or dishonest practices used by less-than-honest police officials. However, protecting civil rights does not mean being anti-police.
                 </p>
                 <p className="text-zinc-300 text-xs sm:text-[13px] leading-relaxed">
-                  The developers and subscribers of this app firmly recognize, respect, and support legitimate law enforcement. Every day, thousands of honest police officers risk their lives to protect communities with fairness and honor. To turn our appreciation into concrete support, <strong>5% of every subscription, renewal, lifetime pass, and credit purchase is donated directly to reputable law enforcement charities, alongside a matching 5% pledged to the Bail Relief Vault for wrongfully accused citizens.</strong>
+                  The developers and subscribers of this app firmly recognize, respect, and support legitimate law enforcement. Every day, thousands of honest police officers risk their lives to protect communities with fairness and honor. To turn our appreciation into concrete support, <strong>5% of every subscription, renewal, lifetime pass, and credit purchase is donated directly to reputable law enforcement charities, supporting officer mental health, safety equipment, and fallen officer families.</strong>
                 </p>
               </div>
             </div>
@@ -108,35 +106,6 @@ export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProp
             </div>
           </div>
 
-          {/* Dual 5% Companion Banner */}
-          <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-amber-400 text-black flex items-center justify-center font-bold shrink-0">
-                <Scale className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-bold text-white uppercase tracking-wider text-[11px]">
-                  Companion 5% Bail Relief Vault Active
-                </div>
-                <p className="text-[11px] text-zinc-300">
-                  Every purchase also pledges 5% into the Bail Relief Vault to help families of wrongfully accused or falsely imprisoned individuals.
-                </p>
-              </div>
-            </div>
-            {onOpenBailVault && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenBailVault();
-                }}
-                className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs cursor-pointer shrink-0 transition-colors"
-              >
-                View Bail Vault
-              </button>
-            )}
-          </div>
-
           {/* Section: Exact 5% Plan Breakdown */}
           <div className="space-y-2.5">
             <h4 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
@@ -147,26 +116,26 @@ export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProp
               <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
                 <div className="text-xs font-bold text-white flex items-center justify-between">
                   <span>Police SafeGuard Pro (Monthly)</span>
-                  <span className="font-mono text-amber-400">$14.99/mo</span>
+                  <span className="font-mono text-amber-400">$3.99/mo</span>
                 </div>
                 <div className="text-base font-black text-emerald-400 font-mono">
-                  $0.75 Donated (5%)
+                  $0.20 Donated (5%)
                 </div>
                 <div className="text-[10px] text-zinc-400">
-                  Matches $0.75 deposited to the Wrongful Accusation Bail Relief Vault.
+                  Direct donation to verified 501(c)(3) officer charities.
                 </div>
               </div>
 
               <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
                 <div className="text-xs font-bold text-white flex items-center justify-between">
                   <span>Police SafeGuard Pro (Yearly)</span>
-                  <span className="font-mono text-amber-400">$49.99/yr</span>
+                  <span className="font-mono text-amber-400">$25.99/yr</span>
                 </div>
                 <div className="text-base font-black text-emerald-400 font-mono">
-                  $2.50 Donated (5%)
+                  $1.30 Donated (5%)
                 </div>
                 <div className="text-[10px] text-zinc-400">
-                  Matches $2.50 deposited to the Wrongful Accusation Bail Relief Vault.
+                  Direct donation to verified 501(c)(3) officer charities.
                 </div>
               </div>
 
@@ -184,7 +153,7 @@ export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProp
               </div>
             </div>
             <div className="text-[10px] text-zinc-500 italic px-1">
-              *All defense credit packs ($4.99 to $49.99) also allocate exactly 5% to our vetted police charity fund and 5% to the Bail Relief Vault.
+              *All defense credit packs ($4.99 to $49.99) also allocate exactly 5% to our vetted police charity fund supporting honest police work.
             </div>
           </div>
 
@@ -245,7 +214,7 @@ export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProp
           <div className="space-y-2">
             <h4 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
               <TrendingUp className="w-4 h-4 text-amber-400" />
-              <span>Recent Subscriber Donations (10% Ledger)</span>
+              <span>Recent Subscriber Donations (5% Ledger)</span>
             </h4>
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden divide-y divide-zinc-900">
               {(impactData?.recentPledges ?? []).map((pledge) => (
@@ -261,7 +230,7 @@ export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProp
                     <span className="font-mono font-bold text-emerald-400">
                       +${pledge.donationAmount.toFixed(2)}
                     </span>
-                    <div className="text-[9px] text-zinc-500">10% Pledged</div>
+                    <div className="text-[9px] text-zinc-500">5% Pledged</div>
                   </div>
                 </div>
               ))}
@@ -295,7 +264,7 @@ export const LawEnforcementCharityModal: React.FC<LawEnforcementCharityModalProp
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 cursor-pointer flex items-center gap-1.5"
               >
                 <HeartHandshake className="w-4 h-4" />
-                <span>View Plans &amp; Contribute (10%)</span>
+                <span>View Plans &amp; Contribute (5%)</span>
               </button>
             )}
           </div>

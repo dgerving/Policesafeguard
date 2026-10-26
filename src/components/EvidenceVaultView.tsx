@@ -145,7 +145,7 @@ export const EvidenceVaultView: React.FC<EvidenceVaultViewProps> = ({
     if (e) e.preventDefault();
     if (!isHigherTier) {
       onUpgradePrompt();
-      setRetrieveError('Multi-device vault retrieval requires the Police SafeGuard Pro tier ($14.99/mo with 30-day free trial).');
+      setRetrieveError('Multi-device vault retrieval requires the Police SafeGuard Pro tier ($3.99/mo with 30-day free trial).');
       return;
     }
 
@@ -296,7 +296,7 @@ export const EvidenceVaultView: React.FC<EvidenceVaultViewProps> = ({
                 className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-extrabold flex items-center gap-1.5 text-[11px] cursor-pointer shadow-md transition-all"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Unlock Multi-Device Cloud Sync ($14.99/mo)</span>
+                <span>Unlock Multi-Device Cloud Sync ($3.99/mo)</span>
               </button>
             )}
           </div>

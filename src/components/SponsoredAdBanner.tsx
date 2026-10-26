@@ -59,7 +59,7 @@ export const SponsoredAdBanner: React.FC<SponsoredAdBannerProps> = ({
               onClick={onUpgradePrompt}
               className="text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
             >
-              Go Ad-Free ($14.99/mo)
+              Go Ad-Free ($3.99/mo)
             </button>
           )}
         </div>
@@ -106,7 +106,7 @@ export const SponsoredAdBanner: React.FC<SponsoredAdBannerProps> = ({
             title="Upgrade to Pro for a 100% ad-free experience across the entire app"
           >
             <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>Go Ad-Free with Pro ($14.99/mo)</span>
+            <span>Go Ad-Free with Pro ($3.99/mo)</span>
           </button>
         )}
       </div>

@@ -47,7 +47,7 @@ export class CharityService {
   public static readonly CHARITY_PERCENTAGE = 5; // 5% of every purchase
 
   public static readonly MISSION_STATEMENT = 
-    "While Police SafeGuard is specifically engineered to protect citizens from civil rights violations and help eliminate unfair, unjust, or dishonest practices used by less-than-honest police officials, the developers and subscribers of this app firmly support legitimate law enforcement and honest police officers. Exactly 5% of every subscription and defense credit purchase is structured as a dedicated donation to reputable law enforcement charities supporting fallen officer families, youth outreach, and officer mental wellness, matching a companion 5% pledged to the Bail Relief Vault for wrongfully accused citizens.";
+    "While Police SafeGuard is specifically engineered to protect citizens from civil rights violations and help eliminate unfair, unjust, or dishonest practices used by less-than-honest police officials, the developers and subscribers of this app firmly support legitimate law enforcement and honest police officers. Exactly 5% of every subscription and defense credit purchase is structured as a dedicated donation to reputable law enforcement charities supporting fallen officer families, youth outreach, and officer mental wellness.";
 
   /**
    * Calculates the exact dollar amount of the 5% donation for a given price

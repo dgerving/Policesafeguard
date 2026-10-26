@@ -15,6 +15,7 @@ import { SUPPORTED_LANGUAGES } from '../services/translator';
 import { AVAILABLE_VOICES, VoiceEngine } from '../services/voiceEngine';
 import { US_STATE_LIST } from '../data/jurisdictions';
 import { VoiceBiometricsService } from '../services/voiceBiometricsService';
+import { AuthClient } from '../services/authClient';
 
 type ProfileTab = 'personal' | 'language' | 'appearance' | 'customization' | 'voice' | 'arrest' | 'subscription' | 'medical';
 
@@ -46,6 +47,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState<ProfileTab>('personal');
   const [showPin, setShowPin] = useState(false);
   const [testVoicePlaying, setTestVoicePlaying] = useState<string | null>(null);
+
+  // Riley v. California Lockdown PIN security & ownership verification states
+  const [isPinOwnershipVerified, setIsPinOwnershipVerified] = useState(false);
+  const [verifyPasswordInput, setVerifyPasswordInput] = useState('');
+  const [pinVerificationError, setPinVerificationError] = useState<string | null>(null);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [pinSaveFeedback, setPinSaveFeedback] = useState<string | null>(null);
+  const [isVerifyingOwnership, setIsVerifyingOwnership] = useState(false);
 
   const [formData, setFormData] = useState<UserProfile>({ 
     ...userProfile,
@@ -135,6 +145,89 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     try {
       localStorage.setItem('police_safeguard_profile', JSON.stringify(updated));
     } catch (e) {}
+  };
+
+  const handleVerifyOwnershipForPin = async () => {
+    setPinVerificationError(null);
+    if (!verifyPasswordInput.trim()) {
+      setPinVerificationError('Please enter your account password or current PIN to verify profile ownership.');
+      return;
+    }
+    setIsVerifyingOwnership(true);
+    try {
+      const cleanInput = verifyPasswordInput.trim();
+      const currentPin = formData.duressLockPin || userProfile.duressLockPin || '7482';
+      const cleanEmail = (userProfile.email || '').toLowerCase().trim();
+      
+      // Check 1: matches current PIN
+      if (cleanInput === currentPin) {
+        setIsPinOwnershipVerified(true);
+        setNewPinInput('');
+        setConfirmPinInput('');
+        setIsVerifyingOwnership(false);
+        return;
+      }
+
+      // Check 2: verify against stored account password hash
+      const accountsRaw = localStorage.getItem('police_safeguard_saved_accounts');
+      const accounts = accountsRaw ? JSON.parse(accountsRaw) : {};
+      const acc = accounts[cleanEmail];
+      if (acc && acc.passwordHash && acc.passwordHash === btoa(cleanInput)) {
+        setIsPinOwnershipVerified(true);
+        setNewPinInput('');
+        setConfirmPinInput('');
+        setIsVerifyingOwnership(false);
+        return;
+      }
+
+      // Check 3: verify against recovery key
+      const savedKey = localStorage.getItem('police_safeguard_recovery_key');
+      if (savedKey && cleanInput.toUpperCase() === savedKey.toUpperCase()) {
+        setIsPinOwnershipVerified(true);
+        setNewPinInput('');
+        setConfirmPinInput('');
+        setIsVerifyingOwnership(false);
+        return;
+      }
+
+      setPinVerificationError('Incorrect password or current PIN. You must prove profile ownership to modify the Arrest Lockdown PIN.');
+    } catch (e) {
+      setPinVerificationError('Verification failed. Please check credentials.');
+    } finally {
+      setIsVerifyingOwnership(false);
+    }
+  };
+
+  const handleSaveNewPin = () => {
+    setPinVerificationError(null);
+    setPinSaveFeedback(null);
+    const cleanNew = newPinInput.replace(/\D/g, '');
+    if (cleanNew.length < 4 || cleanNew.length > 8) {
+      setPinVerificationError('PIN must be between 4 and 8 digits.');
+      return;
+    }
+    if (cleanNew !== confirmPinInput.replace(/\D/g, '')) {
+      setPinVerificationError('New PIN and confirmation PIN do not match.');
+      return;
+    }
+
+    const updated: UserProfile = {
+      ...userProfile,
+      ...formData,
+      duressLockPin: cleanNew
+    };
+    setFormData(updated);
+    onSave(updated);
+    try {
+      localStorage.setItem('police_safeguard_profile', JSON.stringify(updated));
+    } catch (e) {}
+    AuthClient.updateProfile({ duressLockPin: cleanNew }).catch(() => {});
+    setPinSaveFeedback(`✅ Arrest Lockdown PIN successfully updated to ${cleanNew}!`);
+    setTimeout(() => {
+      setPinSaveFeedback(null);
+      setIsPinOwnershipVerified(false);
+      setVerifyPasswordInput('');
+    }, 4000);
   };
 
   const compressImageFile = (file: File, maxDimension = 1920, quality = 0.85): Promise<string> => {
@@ -298,7 +391,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     const maxAllowedContacts = isPaid ? 5 : 1;
     if (contactsList.length >= maxAllowedContacts) {
       if (!isPaid) {
-        setContactError('Free tier allows 1 emergency witness contact. Upgrade to Pro ($14.99/mo) with a 30-day free trial to unlock up to 5 witness contacts with live video broadcasting.');
+        setContactError('Free tier allows 1 emergency witness contact. Upgrade to Pro ($3.99/mo) with a 30-day free trial to unlock up to 5 witness contacts with live video broadcasting.');
         if (onUpgradePrompt) onUpgradePrompt();
       } else {
         setContactError('Maximum of 5 emergency contacts reached.');
@@ -586,7 +679,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         <span>1 of 1 Free Witness Contact Added</span>
                       </div>
                       <p className="text-[11px] text-zinc-300">
-                        Upgrade to Pro ($14.99/mo) with a 30-day free trial to unlock up to 5 Emergency Witness Contacts with simultaneous multi-device live streaming.
+                        Upgrade to Pro ($3.99/mo) with a 30-day free trial to unlock up to 5 Emergency Witness Contacts with simultaneous multi-device live streaming.
                       </p>
                     </div>
                     {onUpgradePrompt && (
@@ -758,7 +851,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-zinc-400 leading-snug">
-                        Real-time language translation for live officer dialogue and citizen scripts is a Pro subscription feature. Upgrade to Pro ($14.99/mo) with a 30-day free trial to unlock Spanish, French, Mandarin, Arabic, and 10+ more languages.
+                        Real-time language translation for live officer dialogue and citizen scripts is a Pro subscription feature. Upgrade to Pro ($3.99/mo) with a 30-day free trial to unlock Spanish, French, Mandarin, Arabic, and 10+ more languages.
                       </p>
                     </div>
                   ) : (
@@ -1374,30 +1467,157 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   Under <em>Riley v. California</em> (2014), police cannot search your digital phone without a warrant. When you trigger <strong>Arrest Mode</strong>, the display instantly blacks out and all evidence is sealed under FRE 902.
                 </p>
 
-                {/* PIN Input */}
-                <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
-                  <label className="block text-[11px] font-bold text-zinc-300 uppercase">
-                    Duress Unlock PIN (4 to 8 Digits)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPin ? 'text' : 'password'}
-                      maxLength={8}
-                      value={formData.duressLockPin || '7482'}
-                      onChange={(e) => setFormData({ ...formData, duressLockPin: e.target.value.replace(/\D/g, '') })}
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-white font-mono tracking-widest focus:outline-none focus:border-amber-400"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPin(!showPin)}
-                      className="absolute right-3 top-2.5 text-zinc-400 hover:text-white cursor-pointer"
-                    >
-                      {showPin ? <EyeOffIcon className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                {/* PIN Management Section with Profile Ownership Verification */}
+                <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-300 uppercase">
+                        Current Duress Unlock PIN
+                      </label>
+                      <span className="text-[10px] text-zinc-400">
+                        Required to unlock screen after triggering Riley v. California arrest mode
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="px-3 py-1 rounded-lg bg-zinc-900 border border-zinc-800 font-mono text-sm font-black text-amber-300 tracking-widest">
+                        {showPin ? (formData.duressLockPin || '7482') : '••••'}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        className="p-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800 cursor-pointer"
+                        title={showPin ? 'Hide PIN' : 'View PIN'}
+                      >
+                        {showPin ? <EyeOffIcon className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-zinc-400">
-                    Default factory PIN is <code className="text-amber-300 font-mono">7482</code>. Remember your code to unlock the device after release.
-                  </p>
+
+                  {!isPinOwnershipVerified ? (
+                    /* Step 1: Prove Profile Ownership */
+                    <div className="pt-2 border-t border-zinc-850 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span className="text-xs font-bold text-white">
+                          Prove Profile Ownership to Modify PIN
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 leading-snug">
+                        To prevent unauthorized tampering, you must enter your account password or current PIN ({formData.duressLockPin || '7482'}) before changing this duress security code.
+                      </p>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="password"
+                          value={verifyPasswordInput}
+                          onChange={(e) => setVerifyPasswordInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleVerifyOwnershipForPin();
+                            }
+                          }}
+                          placeholder="Enter account password or current PIN"
+                          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleVerifyOwnershipForPin}
+                          disabled={isVerifyingOwnership}
+                          className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all shrink-0"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>{isVerifyingOwnership ? 'Verifying...' : 'Verify Ownership'}</span>
+                        </button>
+                      </div>
+
+                      {pinVerificationError && (
+                        <div className="p-2.5 rounded-lg bg-red-950/70 border border-red-500/50 text-red-300 text-[11px] flex items-center gap-2">
+                          <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                          <span>{pinVerificationError}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Step 2: Set New 4-8 Digit PIN */
+                    <div className="pt-2 border-t border-zinc-850 space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          <span>Profile Ownership Verified</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPinOwnershipVerified(false);
+                            setVerifyPasswordInput('');
+                            setNewPinInput('');
+                            setConfirmPinInput('');
+                          }}
+                          className="text-[10px] text-zinc-400 hover:text-white underline cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-300 uppercase mb-1">
+                            New PIN (4 to 8 Digits)
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={8}
+                            value={newPinInput}
+                            onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                            placeholder="Enter 4-8 digits"
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono tracking-widest focus:outline-none focus:border-emerald-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-300 uppercase mb-1">
+                            Confirm New PIN
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={8}
+                            value={confirmPinInput}
+                            onChange={(e) => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
+                            placeholder="Re-enter new PIN"
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono tracking-widest focus:outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                      </div>
+
+                      {pinVerificationError && (
+                        <div className="p-2.5 rounded-lg bg-red-950/70 border border-red-500/50 text-red-300 text-[11px] flex items-center gap-2">
+                          <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                          <span>{pinVerificationError}</span>
+                        </div>
+                      )}
+
+                      {pinSaveFeedback && (
+                        <div className="p-2.5 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 text-[11px] flex items-center gap-2">
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{pinSaveFeedback}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleSaveNewPin}
+                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all"
+                      >
+                        <Lock className="w-3.5 h-3.5 fill-black" />
+                        <span>Save &amp; Seal New Lockdown PIN</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Intruder Snapshot Feature */}

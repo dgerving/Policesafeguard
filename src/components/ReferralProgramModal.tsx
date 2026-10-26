@@ -265,7 +265,7 @@ export const ReferralProgramModal: React.FC<ReferralProgramModalProps> = ({
                     <div>
                       <h3 className="font-black text-white text-base">Free Monthly Premium</h3>
                       <p className="text-[11px] text-zinc-400 mt-0.5">
-                        Free All-Encounters Universal Defense ($14.99/mo value)
+                        Free All-Encounters Universal Defense ($3.99/mo value)
                       </p>
                     </div>
 
@@ -341,7 +341,7 @@ export const ReferralProgramModal: React.FC<ReferralProgramModalProps> = ({
                     <div>
                       <h3 className="font-black text-white text-base">Free Yearly Premium</h3>
                       <p className="text-[11px] text-zinc-400 mt-0.5">
-                        Free 1-Year All-Encounters License ($49.99/yr value)
+                        Free 1-Year All-Encounters License ($25.99/yr value)
                       </p>
                     </div>
 

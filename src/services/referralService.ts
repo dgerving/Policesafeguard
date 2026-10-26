@@ -118,7 +118,7 @@ export class ReferralService {
         percent: Math.min(100, Math.round((monthlyCount / monthlyTarget) * 100)),
         canClaim: canClaimMonthly,
         isClaimed: currentState.claimedTiers.monthly,
-        qualifyingPlans: 'Monthly ($14.99), Yearly ($49.99), or Lifetime ($79.99)',
+        qualifyingPlans: 'Monthly ($3.99), Yearly ($25.99), or Lifetime ($79.99)',
       },
       yearly: {
         count: yearlyCount,
@@ -126,7 +126,7 @@ export class ReferralService {
         percent: Math.min(100, Math.round((yearlyCount / yearlyTarget) * 100)),
         canClaim: canClaimYearly,
         isClaimed: currentState.claimedTiers.yearly,
-        qualifyingPlans: 'Yearly ($49.99) or Lifetime ($79.99)',
+        qualifyingPlans: 'Yearly ($25.99) or Lifetime ($79.99)',
       },
       lifetime: {
         count: lifetimeCount,
@@ -176,8 +176,8 @@ export class ReferralService {
     const masked = `${initials[0][0].toLowerCase()}***${initials[1][0].toLowerCase()}@policesafeguard.com`;
     
     const amounts = {
-      monthly: 14.99,
-      yearly: 49.99,
+      monthly: 3.99,
+      yearly: 25.99,
       lifetime: 79.99
     };
 

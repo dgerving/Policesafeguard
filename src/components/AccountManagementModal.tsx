@@ -253,7 +253,7 @@ export const AccountManagementModal: React.FC<AccountManagementModalProps> = ({
 
                 <div className="text-left sm:text-right shrink-0">
                   <div className="text-xs font-mono text-zinc-300 font-bold">
-                    {userProfile.billingCycle === 'yearly' ? '$49.99 / year' : '$14.99 / month'}
+                    {userProfile.billingCycle === 'yearly' ? '$25.99 / year' : '$3.99 / month'}
                   </div>
                   <div className="text-[10px] text-zinc-500">Auto-Renews until cancelled</div>
                 </div>

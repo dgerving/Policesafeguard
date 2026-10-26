@@ -249,7 +249,7 @@ export const HypotheticalScenarioSection: React.FC<HypotheticalScenarioSectionPr
               className="text-[10px] font-mono font-black uppercase px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 text-amber-300 border border-amber-500/40 transition-colors shrink-0 text-center cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Remove Ads with Pro ($14.99/mo)</span>
+              <span>Remove Ads with Pro ($3.99/mo)</span>
             </button>
           )}
         </div>

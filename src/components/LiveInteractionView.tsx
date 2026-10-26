@@ -25,6 +25,7 @@ import { JurisdictionLegalityService, FeatureLegalityCheck } from '../services/j
 import { ShareLiveFeedModal } from './ShareLiveFeedModal';
 import { EmergencyDistressModal } from './EmergencyDistressModal';
 import { LegalityRestrictedModal } from './LegalityRestrictedModal';
+import { FlockProximityRadarWidget } from './FlockProximityRadarWidget';
 
 interface LiveInteractionProps {
   userProfile: UserProfile;
@@ -43,6 +44,7 @@ interface LiveInteractionProps {
   onOpenServerActivity?: () => void;
   onEmergencyRefreshServer?: () => void;
   onUpdateProfile?: (updated: UserProfile) => void;
+  onOpenFlockMap?: () => void;
   isRecording?: boolean;
   setIsRecording?: (val: boolean) => void;
   isSuspended?: boolean;
@@ -65,6 +67,7 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
   onOpenServerActivity,
   onEmergencyRefreshServer,
   onUpdateProfile,
+  onOpenFlockMap,
   isRecording: externalIsRecording,
   setIsRecording: externalSetIsRecording,
   isSuspended = false,
@@ -97,7 +100,13 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
   const [isTorchActive, setIsTorchActive] = useState(false);
   const [isTorchSupported, setIsTorchSupported] = useState(false);
   const [isScreenTorchActive, setIsScreenTorchActive] = useState(false);
-  const [autoTorchEnabled, setAutoTorchEnabled] = useState(true);
+  const [autoTorchEnabled, setAutoTorchEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('police_safeguard_auto_torch') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const wakeLockRef = useRef<any>(null);
   const [hasCameraError, setHasCameraError] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -210,9 +219,11 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
   const snapshotIntervalRef = useRef<any>(null);
   const broadcasterRef = useRef<{
     sendFrame: (dataUrl: string, metadata?: any) => void;
+    sendAudio?: (audioDataUrl: string) => void;
     close: () => void;
   } | null>(null);
   const cameraStreamIntervalRef = useRef<any>(null);
+  const liveAudioRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingDurationRef = useRef(0);
   const transcriptRef = useRef<TranscriptEntry[]>([]);
   const gpsLocationRef = useRef<any>(undefined);
@@ -488,19 +499,11 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
         setupAudioVisualizer(stream);
       }
 
-      // Inspect hardware torch capability
+      // Inspect hardware torch capability (keep flashlight strictly OFF until user requests)
       const vTrack = stream.getVideoTracks()[0];
       if (vTrack) {
         const caps = (vTrack.getCapabilities?.() || {}) as any;
         setIsTorchSupported(Boolean(caps.torch));
-        if (cameraFacing === 'environment' && autoTorchEnabled && isLowLightMode && caps.torch) {
-          try {
-            await vTrack.applyConstraints({ advanced: [{ torch: true }] } as any);
-            setIsTorchActive(true);
-          } catch (e) {
-            console.warn('Could not auto-engage torch on camera start:', e);
-          }
-        }
       }
     } catch (err: any) {
       console.warn('Camera access fallback engaged:', err?.message || err);
@@ -707,19 +710,8 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
 
         if (isDim) {
           setIsLowLightMode(true);
-          // If on rear camera view, automatically turn on hardware torch feature!
-          if (cameraFacing === 'environment' && autoTorchEnabled && !isTorchActive) {
-            await setHardwareTorch(true);
-            setCameraFeedbackMessage('Low light detected • Auto-torch engaged');
-            setTimeout(() => setCameraFeedbackMessage(null), 2500);
-          }
         } else if (avgLuminance > 80) {
-          // Ambient lighting is sufficient
-          if (autoTorchEnabled && isTorchActive) {
-            await setHardwareTorch(false);
-            setCameraFeedbackMessage('Lighting normalized • Torch disengaged');
-            setTimeout(() => setCameraFeedbackMessage(null), 2000);
-          }
+          setIsLowLightMode(false);
         }
       } catch (e) {
         // Ignore canvas read errors if frames aren't ready
@@ -800,16 +792,6 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
       if (vTrack) {
         const caps = (vTrack.getCapabilities?.() || {}) as any;
         setIsTorchSupported(Boolean(caps.torch));
-
-        // If switched to rear camera (environment) in low-light mode, automatically turn on torch!
-        if (nextFacing === 'environment' && autoTorchEnabled && isLowLightMode && caps.torch) {
-          try {
-            await vTrack.applyConstraints({ advanced: [{ torch: true }] } as any);
-            setIsTorchActive(true);
-          } catch (torchErr) {
-            console.warn('Torch auto-activation error:', torchErr);
-          }
-        }
       }
 
       const label = nextFacing === 'environment' ? 'Rear (Dashcam) View' : 'Front (Selfie Mirror) View';
@@ -943,6 +925,37 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
       clearInterval(cameraStreamIntervalRef.current);
     }
 
+    // Start real-time audio chunk transmission for witnesses
+    if (mediaStreamRef.current && mediaStreamRef.current.getAudioTracks().length > 0) {
+      try {
+        if (liveAudioRecorderRef.current && liveAudioRecorderRef.current.state !== 'inactive') {
+          liveAudioRecorderRef.current.stop();
+        }
+        const audioTracks = mediaStreamRef.current.getAudioTracks();
+        const audioOnlyStream = new MediaStream(audioTracks);
+        const mimeType = (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))
+          ? 'audio/webm;codecs=opus'
+          : (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm'))
+          ? 'audio/webm'
+          : 'audio/mp4';
+        const audioRec = new MediaRecorder(audioOnlyStream, { mimeType, audioBitsPerSecond: 32000 });
+        audioRec.ondataavailable = async (e) => {
+          if (e.data && e.data.size > 0 && broadcasterRef.current) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const res = reader.result as string;
+              if (res) broadcasterRef.current?.sendAudio?.(res);
+            };
+            reader.readAsDataURL(e.data);
+          }
+        };
+        audioRec.start(400); // 400ms low-latency audio chunk intervals
+        liveAudioRecorderRef.current = audioRec;
+      } catch (audioErr) {
+        console.warn('Live witness audio capture note:', audioErr);
+      }
+    }
+
     const streamCanvas = document.createElement('canvas');
     streamCanvas.width = 640;
     streamCanvas.height = 360;
@@ -969,7 +982,7 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
           });
         }
       } catch (e) {}
-    }, 125); // ~8 FPS
+    }, 125); // ~8 FPS low latency
   };
 
   // Ensures direct camera streaming without disrupting ongoing stream
@@ -1935,6 +1948,10 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
       clearInterval(cameraStreamIntervalRef.current);
       cameraStreamIntervalRef.current = null;
     }
+    if (liveAudioRecorderRef.current && liveAudioRecorderRef.current.state !== 'inactive') {
+      try { liveAudioRecorderRef.current.stop(); } catch (e) {}
+      liveAudioRecorderRef.current = null;
+    }
     if (broadcasterRef.current) {
       broadcasterRef.current.close();
       broadcasterRef.current = null;
@@ -2276,6 +2293,11 @@ export const LiveInteractionView: React.FC<LiveInteractionProps> = ({
           
           {/* Video element */}
           <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden min-h-[260px] sm:min-h-[340px]">
+            {/* Live Flock ALPR Camera Proximity Radar Widget */}
+            <div className="absolute top-2 left-2 right-2 z-30 pointer-events-auto">
+              <FlockProximityRadarWidget onOpenFullMap={onOpenFlockMap} />
+            </div>
+
             {/* Standby Camera Viewfinder Imagery & Tactical HUD Overlay */}
             {!isRecording && !isCameraPreviewActive && (
               <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
