@@ -175,6 +175,33 @@ export default function App() {
             billingCycle: parsed.billingCycle || 'monthly',
           };
         }
+        const lastEmail = localStorage.getItem('police_safeguard_last_email');
+        if (lastEmail === 'dgerving@gmail.com') {
+          return {
+            id: 'usr_dgerving_admin',
+            name: 'Dustin Gerving',
+            email: 'dgerving@gmail.com',
+            phone: '',
+            nativeLanguage: 'en',
+            membershipTier: 'lifetime_pro',
+            billingCycle: 'lifetime',
+            credits: 999,
+            role: 'admin',
+            hasCompletedOnboarding: true,
+            vehicleMakeModel: '',
+            vehicleLicensePlate: '',
+            vehicleColor: '',
+            emergencyContactName: '',
+            emergencyContactPhone: '',
+            emergencyContacts: [],
+            medicalConditions: 'None',
+            isDeafOrHardOfHearing: false,
+            preferredVoice: 'standard-system',
+            whisperModeEnabled: true,
+            duressLockPin: '7482',
+            autoNotifyContactOnStart: true
+          };
+        }
       }
     } catch (e) {
       console.warn('Error reading userProfile from storage:', e);

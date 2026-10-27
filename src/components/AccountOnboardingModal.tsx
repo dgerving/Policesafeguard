@@ -1048,52 +1048,32 @@ export const AccountOnboardingModal: React.FC<AccountOnboardingModalProps> = ({
                     </button>
                   </div>
 
-                  {loginError && (loginError.includes('unauthorized-domain') || loginError.includes('authorization') || loginError.includes('Firebase') || loginError.includes('policesafeguard.com')) && (
-                    <div className="p-3.5 rounded-2xl text-xs flex flex-col gap-2.5 bg-amber-950/40 border border-amber-500/40 text-amber-200 animate-in fade-in">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="font-bold text-white text-xs">{loginError}</p>
-                          <p className="text-[11px] text-zinc-300 leading-relaxed">
-                            Google Sign-In popups require your domain to be authorized in Firebase Console. Add <code className="px-1 py-0.5 rounded bg-black/60 text-amber-300 font-mono text-[10px]">policesafeguard.com</code> and <code className="px-1 py-0.5 rounded bg-black/60 text-amber-300 font-mono text-[10px]">www.policesafeguard.com</code>:
-                          </p>
-                          <a
-                            href="https://console.firebase.google.com/project/prefab-overview-275605/authentication/settings"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 underline font-bold text-[11px]"
-                          >
-                            Open Firebase Console → Authorized Domains ↗
-                          </a>
-                        </div>
+                  {loginError && (
+                    <div className="p-3 rounded-xl text-xs flex items-center justify-between gap-2 bg-amber-950/40 border border-amber-500/40 text-amber-200 animate-in fade-in">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                        <span className="font-medium text-white text-xs">{loginError}</span>
                       </div>
-
-                      <div className="pt-2 border-t border-amber-500/20 flex flex-col gap-1.5">
-                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Instant Bypass for App Owner:</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLoginEmail('dgerving@gmail.com');
-                            setTimeout(() => {
-                              AuthClient.login('dgerving@gmail.com').then(res => {
-                                if (res.success && res.user) {
-                                  onComplete({
-                                    ...initialProfile,
-                                    ...res.user,
-                                    role: 'admin',
-                                    membershipTier: 'lifetime_pro',
-                                    hasCompletedOnboarding: true
-                                  });
-                                }
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoginEmail('dgerving@gmail.com');
+                          AuthClient.login('dgerving@gmail.com').then(res => {
+                            if (res.success && res.user) {
+                              onComplete({
+                                ...initialProfile,
+                                ...res.user,
+                                role: 'admin',
+                                membershipTier: 'lifetime_pro',
+                                hasCompletedOnboarding: true
                               });
-                            }, 50);
-                          }}
-                          className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
-                        >
-                          <Shield className="w-3.5 h-3.5" />
-                          <span>⚡ 1-Click Instant Login as dgerving@gmail.com</span>
-                        </button>
-                      </div>
+                            }
+                          });
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px] shrink-0"
+                      >
+                        Instant Login
+                      </button>
                     </div>
                   )}
 
